@@ -1,0 +1,245 @@
+import { type Node, type Edge } from '@xyflow/react';
+
+export function generateSpiceNetlist(nodes: Node[], edges: Edge[], simLength: number = 1.0, simResolution: 'normal' | 'high' = 'normal'): { netlist: string; portToNet: Record<string, string> } {
+  let netlist = "Circuit Simulation\n";
+  
+  // 1. Map connections to nets
+  // We'll use a Union-Find or a simple adjacency list to group connected ports into 'nets'.
+  // A port is defined by `${node.id}-${handle}`.
+  let netIdCounter = 1;
+  const portToNet: Record<string, string> = {};
+
+  // Initialize each edge connection as a net
+  edges.forEach(edge => {
+    const sourcePort = `${edge.source}-${edge.sourceHandle || 'out'}`;
+    const targetPort = `${edge.target}-${edge.targetHandle || 'in'}`;
+    
+    let sourceNet = portToNet[sourcePort];
+    let targetNet = portToNet[targetPort];
+
+    if (!sourceNet && !targetNet) {
+      const netId = `N${netIdCounter++}`;
+      portToNet[sourcePort] = netId;
+      portToNet[targetPort] = netId;
+    } else if (sourceNet && !targetNet) {
+      portToNet[targetPort] = sourceNet;
+    } else if (!sourceNet && targetNet) {
+      portToNet[sourcePort] = targetNet;
+    } else if (sourceNet !== targetNet) {
+      // Merge nets (simplistic, assumes no complex graphs for now, better to use proper disjoint set if it gets complex)
+      Object.keys(portToNet).forEach(port => {
+        if (portToNet[port] === targetNet) {
+          portToNet[port] = sourceNet;
+        }
+      });
+    }
+  });
+
+  // Force ground to be net '0'
+  const groundNodes = nodes.filter(n => n.type === 'ground');
+  groundNodes.forEach(gNode => {
+    const groundPortIn = `${gNode.id}-in`;
+    const net = portToNet[groundPortIn];
+    if (net) {
+      Object.keys(portToNet).forEach(port => {
+        if (portToNet[port] === net) {
+          portToNet[port] = '0';
+        }
+      });
+    } else {
+       portToNet[groundPortIn] = '0';
+    }
+  });
+
+  // Helper to get net for a node's handle
+  const getNet = (nodeId: string, handleId: string) => {
+    return portToNet[`${nodeId}-${handleId}`] || `NC_${nodeId}_${handleId}`;
+  };
+
+  let has555 = false;
+  let hasOpAmp = false;
+
+  // 2. Generate SPICE statements for each node
+  nodes.forEach(node => {
+    if (node.type === 'resistor') {
+      const val = node.data.label || '1k';
+      const n1 = getNet(node.id, 'in');
+      const n2 = getNet(node.id, 'out');
+      netlist += `R_${node.id} ${n1} ${n2} ${val}\n`;
+    } 
+    else if (node.type === 'capacitor') {
+      const val = node.data.label || '10u';
+      const n1 = getNet(node.id, 'in');
+      const n2 = getNet(node.id, 'out');
+      netlist += `C_${node.id} ${n1} ${n2} ${val}\n`;
+    }
+    else if (node.type === 'voltage') {
+      const val = node.data.label ? String(node.data.label).replace('V', '') : '5';
+      const n1 = getNet(node.id, 'pos');
+      const n2 = getNet(node.id, 'neg');
+      netlist += `V_${node.id} ${n1} ${n2} DC ${val}\n`;
+    }
+    else if (node.type === 'led') {
+      const n1 = getNet(node.id, 'anode');
+      const n2 = getNet(node.id, 'cathode');
+      // Dummy 1-ohm resistor to measure branch current
+      netlist += `R_ammeter_${node.id} ${n1} int_led_${node.id} 1\n`;
+      netlist += `D_${node.id} int_led_${node.id} ${n2} LED_MODEL_${node.id}\n`;
+      
+      const v_drop = Number(node.data.v_drop || 2.0);
+      const n_coeff = v_drop / 1.2;
+      netlist += `.model LED_MODEL_${node.id} D(IS=1e-22 RS=5 N=${n_coeff})\n`;
+    }
+    else if (node.type === 'opamp') {
+      hasOpAmp = true;
+      const in_non = getNet(node.id, 'in_non');
+      const in_inv = getNet(node.id, 'in_inv');
+      const vcc = getNet(node.id, 'vcc');
+      const vee = getNet(node.id, 'vee');
+      const out = getNet(node.id, 'out');
+      netlist += `X_${node.id} ${in_non} ${in_inv} ${vcc} ${vee} ${out} IDEAL_OPAMP\n`;
+    }
+    else if (node.type === 'timer555') {
+      has555 = true;
+      // Pins: 1:GND, 2:TRIG, 3:OUT, 4:RESET, 5:CTRL, 6:THR, 7:DIS, 8:VCC
+      const gnd = getNet(node.id, '1');
+      const trig = getNet(node.id, '2');
+      const out = getNet(node.id, '3');
+      const rst = getNet(node.id, '4');
+      const ctrl = getNet(node.id, '5');
+      const thr = getNet(node.id, '6');
+      const dis = getNet(node.id, '7');
+      const vcc = getNet(node.id, '8');
+      
+      // Syntax: Xname GND TRIG OUT RST CTRL THR DIS VCC modelname
+      netlist += `X_${node.id} ${gnd} ${trig} ${out} ${rst} ${ctrl} ${thr} ${dis} ${vcc} NE555\n`;
+    }
+    else if (node.type === 'multimeter') {
+      const n1 = getNet(node.id, 'pos');
+      const n2 = getNet(node.id, 'neg');
+      netlist += `R_${node.id} ${n1} ${n2} 1G\n`;
+    }
+    else if (node.type === 'signalgen') {
+      const freq = Number(node.data.frequency || 1);
+      const amp = node.data.amplitude || 5;
+      const type = node.data.waveform === 'square' ? `PULSE(-${amp} ${amp} 0 1n 1n ${0.5/freq} ${1/freq})` : `SINE(0 ${amp} ${freq})`;
+      const n1 = getNet(node.id, 'out');
+      const n2 = getNet(node.id, 'gnd');
+      netlist += `V_${node.id} ${n1} ${n2} ${type}\n`;
+    }
+    else if (node.type === 'scope') {
+      const n1 = getNet(node.id, 'in');
+      const n2 = getNet(node.id, 'gnd');
+      netlist += `R_${node.id} ${n1} ${n2} 1G\n`;
+    }
+    else if (node.type === 'speaker') {
+      const n1 = getNet(node.id, 'in');
+      const n2 = getNet(node.id, 'gnd');
+      netlist += `R_${node.id} ${n1} ${n2} 8\n`; // 8 ohm speaker load
+    }
+    else if (node.type === 'microphone') {
+      const n1 = getNet(node.id, 'out');
+      const n2 = getNet(node.id, 'gnd');
+      const pwlData = node.data.pwlData as any[] | undefined;
+      if (pwlData && pwlData.length > 0) {
+        const pwlString = pwlData.map((p: any) => `${p.t} ${p.v}`).join(' ');
+        netlist += `V_${node.id} ${n1} ${n2} PWL(${pwlString})\n`;
+      } else {
+        netlist += `V_${node.id} ${n1} ${n2} DC 0\n`;
+      }
+    }
+    else if (node.type === 'npn') {
+      const nc = getNet(node.id, 'c');
+      const nb = getNet(node.id, 'b');
+      const ne = getNet(node.id, 'e');
+      const bf = node.data.bf || 300;
+      netlist += `Q_${node.id} ${nc} ${nb} ${ne} NPN_MODEL_${node.id}\n`;
+      netlist += `.model NPN_MODEL_${node.id} NPN(IS=1e-14 VAF=100 BF=${bf} IKF=0.4 XTB=1.5 BR=3 CJC=8e-12 CJE=25e-12 TR=100e-9 TF=400e-12 ITF=1 VTF=2 XTF=3 RB=10)\n`;
+    }
+    else if (node.type === 'pnp') {
+      const nc = getNet(node.id, 'c');
+      const nb = getNet(node.id, 'b');
+      const ne = getNet(node.id, 'e');
+      const bf = node.data.bf || 300;
+      netlist += `Q_${node.id} ${nc} ${nb} ${ne} PNP_MODEL_${node.id}\n`;
+      netlist += `.model PNP_MODEL_${node.id} PNP(IS=1e-14 VAF=100 BF=${bf} IKF=0.4 XTB=1.5 BR=3 CJC=8e-12 CJE=25e-12 TR=100e-9 TF=400e-12 ITF=1 VTF=2 XTF=3 RB=10)\n`;
+    }
+    else if (node.type === 'nmos') {
+      const nd = getNet(node.id, 'd');
+      const ng = getNet(node.id, 'g');
+      const ns = getNet(node.id, 's');
+      const vto = node.data.vto !== undefined ? node.data.vto : 2.0;
+      const kp = node.data.kp !== undefined ? node.data.kp : 0.05;
+      netlist += `M_${node.id} ${nd} ${ng} ${ns} ${ns} NMOS_MODEL_${node.id}\n`;
+      netlist += `.model NMOS_MODEL_${node.id} NMOS(LEVEL=1 VTO=${vto} KP=${kp} GAMMA=0.5 PHI=0.6 LAMBDA=0.01)\n`;
+    }
+    else if (node.type === 'pmos') {
+      const nd = getNet(node.id, 'd');
+      const ng = getNet(node.id, 'g');
+      const ns = getNet(node.id, 's');
+      const vto = node.data.vto !== undefined ? node.data.vto : -2.0;
+      const kp = node.data.kp !== undefined ? node.data.kp : 0.02;
+      netlist += `M_${node.id} ${nd} ${ng} ${ns} ${ns} PMOS_MODEL_${node.id}\n`;
+      netlist += `.model PMOS_MODEL_${node.id} PMOS(LEVEL=1 VTO=${vto} KP=${kp} GAMMA=0.5 PHI=0.6 LAMBDA=0.01)\n`;
+    }
+  });
+  
+  if (hasOpAmp) {
+    netlist += `
+* Idealized Op-Amp Macro Model
+* Node order: IN+ IN- VCC VEE OUT
+.SUBCKT IDEAL_OPAMP 1 2 3 4 5
+* High input impedance
+Rin 1 2 100MEG
+* Voltage controlled voltage source for gain (Gain = 100k)
+E1 6 0 1 2 100k
+* Output clipping to power rails
+B1 5 0 V=V(6) > V(3) ? V(3) : (V(6) < V(4) ? V(4) : V(6))
+.ENDS IDEAL_OPAMP
+`;
+  }
+
+  if (has555) {
+    // Basic NE555 macro model (idealized for speed)
+    netlist += `
+* Idealized NE555 Timer Macro Model
+* Node order: GND TRIG OUT RST CTRL THR DIS VCC
+.SUBCKT NE555 1 2 3 4 5 6 7 8
+* Voltage divider
+R1 8 5 5k
+R2 5 61 5k
+R3 61 1 5k
+
+* Smooth SR Latch Integrator
+* Instead of G-source integrating to infinity, use standard switches to charge/discharge a capacitor
+S_SET 8 state 61 2 SMOD_ON
+S_RST state 1 6 5 SMOD_ON
+C1 state 1 100p
+* Add parallel resistor to guarantee DC convergence
+R4 state 1 100MEG
+
+* Output buffer
+E_OUT 3 1 VOL={V(state)>2.5 ? V(8) : 0}
+
+* Discharge
+S_DIS 7 1 8 state SMOD_DIS
+
+.MODEL SMOD_ON SW(VT=0 RON=1k ROFF=100MEG)
+.MODEL SMOD_DIS SW(VT=2.5 RON=10 ROFF=100MEG)
+.ENDS NE555
+`;
+  }
+  
+  // Save all voltages to ensure they are returned
+  netlist += `.save all\n`;
+  
+  // Basic transient analysis (variable total)
+  if (simResolution === 'high') {
+    netlist += `.tran 1m ${simLength}s 0 0.1m uic\n`;
+  } else {
+    netlist += `.tran 1m ${simLength}s uic\n`;
+  }
+  netlist += `.end\n`;
+
+  return { netlist, portToNet };
+}
