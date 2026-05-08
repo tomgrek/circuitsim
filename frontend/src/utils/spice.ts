@@ -140,10 +140,23 @@ export function generateSpiceNetlist(nodes: Node[], edges: Edge[], simLength: nu
     else if (node.type === 'microphone') {
       const n1 = getNet(node.id, 'out');
       const n2 = getNet(node.id, 'gnd');
-      const pwlData = node.data.pwlData as any[] | undefined;
+      const pwlData = node.data.pwlData as { t: number; v: number }[] | undefined;
       if (pwlData && pwlData.length > 0) {
-        const pwlString = pwlData.map((p: any) => `${p.t} ${p.v}`).join(' ');
-        netlist += `V_${node.id} ${n1} ${n2} PWL(${pwlString})\n`;
+        // Build PWL with line continuations to avoid exceeding Ngspice's line buffer (~1024 chars)
+        const POINTS_PER_LINE = 8;
+        let pwlLines = `V_${node.id} ${n1} ${n2} PWL(\n`;
+        for (let i = 0; i < pwlData.length; i++) {
+          const p = pwlData[i];
+          if (i % POINTS_PER_LINE === 0) {
+            pwlLines += '+ ';
+          }
+          pwlLines += `${p.t.toExponential(6)} ${p.v.toExponential(6)} `;
+          if ((i + 1) % POINTS_PER_LINE === 0 || i === pwlData.length - 1) {
+            pwlLines += '\n';
+          }
+        }
+        pwlLines += '+ )\n';
+        netlist += pwlLines;
       } else {
         netlist += `V_${node.id} ${n1} ${n2} DC 0\n`;
       }

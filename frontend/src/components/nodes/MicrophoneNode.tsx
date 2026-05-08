@@ -1,11 +1,22 @@
-import { Handle, Position } from '@xyflow/react';
-import { useState, useRef } from 'react';
+import { Handle, Position, useReactFlow } from '@xyflow/react';
+import { useState, useRef, useCallback } from 'react';
 import { Mic, Square } from 'lucide-react';
 
-export function MicrophoneNode({ data }: any) {
+export function MicrophoneNode({ id, data }: any) {
   const [isRecording, setIsRecording] = useState(false);
+  const [hasData, setHasData] = useState(!!data.pwlData);
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
+  const { setNodes } = useReactFlow();
+
+  const updatePwlData = useCallback((points: { t: number; v: number }[]) => {
+    setNodes(nds => nds.map(n =>
+      n.id === id
+        ? { ...n, data: { ...n.data, pwlData: points } }
+        : n
+    ));
+    setHasData(true);
+  }, [id, setNodes]);
 
   const toggleRecord = async () => {
     if (isRecording) {
@@ -29,22 +40,27 @@ export function MicrophoneNode({ data }: any) {
           const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
           const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
           
-          // Downsample or take first 100ms for SPICE (SPICE gets very slow with too many PWL points)
           const rawData = audioBuffer.getChannelData(0);
           const sampleRate = audioBuffer.sampleRate;
           
-          // Take only first 100ms to match default sim time, and decimate to e.g. 10kHz to avoid massive PWL
+          // Take first 100ms of audio, decimated to ~8kHz to keep PWL manageable
           const targetDuration = 0.1; // 100ms
-          const decimationFactor = Math.floor(sampleRate / 10000); 
-          const points = [];
+          const targetSampleRate = 8000;
+          const decimationFactor = Math.max(1, Math.floor(sampleRate / targetSampleRate)); 
+          const maxSamples = Math.min(sampleRate * targetDuration, rawData.length);
+          const points: { t: number; v: number }[] = [];
           
-          for(let i=0; i < sampleRate * targetDuration && i < rawData.length; i += decimationFactor) {
-            points.push({ t: i / sampleRate, v: rawData[i] });
+          for (let i = 0; i < maxSamples; i += decimationFactor) {
+            // Scale raw audio (-1..+1) to a small voltage (e.g. ±50mV typical electret mic level)
+            points.push({ t: i / sampleRate, v: rawData[i] * 0.05 });
           }
           
-          // Pass data up via a custom event or let App.tsx pull it if we used React Flow's setNodes
-          // For simplicity, we just mutate data here, though React Flow prefers immutable updates via onNodesChange
-          data.pwlData = points;
+          // Stop all tracks to release mic
+          stream.getTracks().forEach(track => track.stop());
+          audioCtx.close();
+
+          // Properly update node data through React Flow state
+          updatePwlData(points);
         };
         
         mediaRecorder.current.start();
@@ -72,6 +88,7 @@ export function MicrophoneNode({ data }: any) {
         {isRecording ? <Square size={16} /> : <Mic size={16} />}
       </button>
       <div className="text-[10px] mt-1 font-mono">Microphone</div>
+      {hasData && <div className="text-[8px] text-green-600 font-bold">● REC</div>}
       <Handle type="source" position={Position.Right} id="out" className="w-3 h-3 bg-blue-500" />
       <Handle type="source" position={Position.Bottom} id="gnd" className="w-3 h-3 bg-black" />
     </div>
