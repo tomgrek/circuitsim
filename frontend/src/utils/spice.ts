@@ -74,7 +74,7 @@ export function generateSpiceNetlist(nodes: Node[], edges: Edge[], simLength: nu
       netlist += `C_${node.id} ${n1} ${n2} ${val}\n`;
     }
     else if (node.type === 'voltage') {
-      const val = node.data.label ? String(node.data.label).replace('V', '') : '5';
+      const val = node.data.voltage !== undefined ? Number(node.data.voltage) : (node.data.label ? parseFloat(String(node.data.label)) || 5 : 5);
       const n1 = getNet(node.id, 'pos');
       const n2 = getNet(node.id, 'neg');
       netlist += `V_${node.id} ${n1} ${n2} DC ${val}\n`;

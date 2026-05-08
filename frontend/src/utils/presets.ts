@@ -112,7 +112,7 @@ export const bjtAmp: CircuitPreset = {
     
     // Bias divider & Base
     { id: 'e-r1-b', source: 'r1', target: 'q1', sourceHandle: 'out', targetHandle: 'b', type: 'smoothstep' },
-    { id: 'e-r2-b', source: 'r2', target: 'q1', sourceHandle: 'in', targetHandle: 'b', type: 'smoothstep' },
+    { id: 'e-r2-b', source: 'q1', target: 'r2', sourceHandle: 'b', targetHandle: 'in', type: 'smoothstep' },
     { id: 'e-r2-g1', source: 'r2', target: 'g1', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
     { id: 'e-cin-b', source: 'cin', target: 'q1', sourceHandle: 'out', targetHandle: 'b', type: 'smoothstep' },
     
