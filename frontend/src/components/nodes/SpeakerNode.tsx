@@ -18,7 +18,7 @@ export function SpeakerNode({ data }: any) {
       const buffer = ctx.createBuffer(1, frameCount, sampleRate);
       const channelData = buffer.getChannelData(0);
 
-      // First pass: interpolate SPICE data to audio sample rate
+      // Interpolate SPICE data to audio sample rate using Cubic Hermite
       const rawSamples = new Float32Array(frameCount);
       let dataIdx = 0;
       for (let i = 0; i < frameCount; i++) {
@@ -50,31 +50,29 @@ export function SpeakerNode({ data }: any) {
         rawSamples[i] = v;
       }
 
-      // Second pass: AC-couple (remove DC offset) and auto-scale
-      // Skip the first 10% of samples to avoid the coupling cap charging transient
-      const skipSamples = Math.floor(frameCount * 0.1);
-      let sum = 0;
-      let count = 0;
-      for (let i = skipSamples; i < frameCount; i++) {
-        sum += rawSamples[i];
-        count++;
+      // Optional AC coupling: remove DC offset
+      let dcOffset = 0;
+      if (data.acCouple) {
+        let sum = 0;
+        for (let i = 0; i < frameCount; i++) sum += rawSamples[i];
+        dcOffset = sum / frameCount;
       }
-      const dcOffset = count > 0 ? sum / count : 0;
 
-      // Find peak amplitude after DC removal
-      let peak = 0;
-      for (let i = skipSamples; i < frameCount; i++) {
-        const ac = Math.abs(rawSamples[i] - dcOffset);
-        if (ac > peak) peak = ac;
+      // Optional auto-normalize: scale peak to 0.8
+      let scale = 1.0 / (data.voltageScale ?? 5.0); // default: divide by 5V
+      if (data.normalize) {
+        let peak = 0;
+        for (let i = 0; i < frameCount; i++) {
+          const ac = Math.abs(rawSamples[i] - dcOffset);
+          if (ac > peak) peak = ac;
+        }
+        scale = peak > 0.001 ? 0.8 / peak : scale;
       }
-      // Normalize so peak maps to ~0.8 (leave headroom), minimum scale of 1V
-      const scale = peak > 0.001 ? 0.8 / peak : 1.0;
 
+      // Write to audio buffer — faithful to the simulation output
       for (let i = 0; i < frameCount; i++) {
-        // For the initial transient region, fade in to avoid the pop
-        const fadeIn = i < skipSamples ? i / skipSamples : 1.0;
-        const ac = (rawSamples[i] - dcOffset) * scale * fadeIn;
-        channelData[i] = Math.max(-1, Math.min(1, ac));
+        const v = (rawSamples[i] - dcOffset) * scale;
+        channelData[i] = Math.max(-1, Math.min(1, v));
       }
 
       const source = ctx.createBufferSource();
@@ -87,7 +85,7 @@ export function SpeakerNode({ data }: any) {
         try { source.stop(); } catch (e) {}
       };
     }
-  }, [data.voltageData]);
+  }, [data.voltageData, data.acCouple, data.normalize, data.voltageScale]);
 
   return (
     <div className="bg-gray-100 border-2 border-gray-400 rounded-md p-2 w-16 h-16 flex items-center justify-center relative shadow-sm">

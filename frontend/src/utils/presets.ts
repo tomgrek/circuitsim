@@ -95,7 +95,7 @@ export const bjtAmp: CircuitPreset = {
     
     // Output coupling & Speaker
     { id: 'cout', type: 'capacitor', position: { x: 800, y: 300 }, data: { label: '470µF', capacitance: 470e-6 } },
-    { id: 'spk1', type: 'speaker', position: { x: 1000, y: 300 }, data: { label: 'Speaker' } },
+    { id: 'spk1', type: 'speaker', position: { x: 1000, y: 300 }, data: { label: 'Speaker', acCouple: true, normalize: true } },
     
     // Grounds
     { id: 'g1', type: 'ground', position: { x: 100, y: 600 }, data: { label: 'GND' } },

@@ -326,6 +326,23 @@ function PropertiesPanel({ selectedNode, setNodes, isSimulating, runSimulation }
           <div className="text-[10px] text-gray-400 mt-1">Output voltage = mic × 0.05V × gain</div>
         </div>
       )}
+      {selectedNode.type === 'speaker' && (
+        <>
+          <div className="mb-3">
+            <label className="block text-xs font-medium text-gray-700 mb-1">Voltage Scale (V)</label>
+            <input type="number" step="1" min="0.1" value={(selectedNode.data.voltageScale as number) ?? 5} onChange={e => updateData('voltageScale', parseFloat(e.target.value) || 5)} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
+            <div className="text-[10px] text-gray-400 mt-1">Full-scale voltage (±V maps to ±1.0 audio)</div>
+          </div>
+          <div className="mb-2 flex items-center gap-2">
+            <input type="checkbox" id="spk-ac" checked={!!selectedNode.data.acCouple} onChange={e => updateData('acCouple', e.target.checked)} />
+            <label htmlFor="spk-ac" className="text-xs text-gray-700">AC Couple (remove DC offset)</label>
+          </div>
+          <div className="mb-2 flex items-center gap-2">
+            <input type="checkbox" id="spk-norm" checked={!!selectedNode.data.normalize} onChange={e => updateData('normalize', e.target.checked)} />
+            <label htmlFor="spk-norm" className="text-xs text-gray-700">Auto-normalize volume</label>
+          </div>
+        </>
+      )}
     </div>
   );
 }
