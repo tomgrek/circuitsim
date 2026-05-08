@@ -144,10 +144,70 @@ export const micSpeaker: CircuitPreset = {
   ]
 };
 
+export const classBamp: CircuitPreset = {
+  name: 'Class B Push-Pull Amp',
+  nodes: [
+    // Power supply
+    { id: 'v1', type: 'voltage', position: { x: 50, y: 50 }, data: { label: '12V', voltage: 12 } },
+
+    // Input: microphone
+    { id: 'mic1', type: 'microphone', position: { x: 50, y: 300 }, data: { label: 'Mic', amplification: 100 } },
+
+    // Input coupling capacitor
+    { id: 'cin', type: 'capacitor', position: { x: 250, y: 300 }, data: { label: '10uF', capacitance: 10e-6 } },
+
+    // Bias divider (sets quiescent point at VCC/2 = 6V)
+    { id: 'r1', type: 'resistor', position: { x: 400, y: 150 }, data: { label: '10k', resistance: 10000 } },
+    { id: 'r2', type: 'resistor', position: { x: 400, y: 450 }, data: { label: '10k', resistance: 10000 } },
+
+    // Complementary push-pull pair
+    { id: 'q1', type: 'npn', position: { x: 600, y: 200 }, data: { label: 'NPN', bf: 200 } },
+    { id: 'q2', type: 'pnp', position: { x: 600, y: 400 }, data: { label: 'PNP', bf: 200 } },
+
+    // Output coupling capacitor & speaker
+    { id: 'cout', type: 'capacitor', position: { x: 800, y: 320 }, data: { label: '470uF', capacitance: 470e-6 } },
+    { id: 'spk1', type: 'speaker', position: { x: 1000, y: 320 }, data: { label: 'Speaker', acCouple: true, normalize: true } },
+
+    // Grounds
+    { id: 'g1', type: 'ground', position: { x: 50, y: 550 }, data: { label: 'GND' } },
+  ],
+  edges: [
+    // Power: VCC to NPN collector, R1 top
+    { id: 'e-v1-q1c', source: 'v1', target: 'q1', sourceHandle: 'pos', targetHandle: 'c', type: 'smoothstep' },
+    { id: 'e-v1-r1', source: 'v1', target: 'r1', sourceHandle: 'pos', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-v1-g1', source: 'v1', target: 'g1', sourceHandle: 'neg', targetHandle: 'in', type: 'smoothstep' },
+
+    // Bias divider: R1.out → base node ← R2.in
+    { id: 'e-r1-base', source: 'r1', target: 'q1', sourceHandle: 'out', targetHandle: 'b', type: 'smoothstep' },
+    { id: 'e-base-r2', source: 'q1', target: 'r2', sourceHandle: 'b', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-r2-gnd', source: 'r2', target: 'g1', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
+
+    // PNP base tied to same bias point as NPN base
+    { id: 'e-r1-q2b', source: 'r1', target: 'q2', sourceHandle: 'out', targetHandle: 'b', type: 'smoothstep' },
+
+    // Input coupling: mic → Cin → base
+    { id: 'e-mic-cin', source: 'mic1', target: 'cin', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-cin-base', source: 'cin', target: 'q1', sourceHandle: 'out', targetHandle: 'b', type: 'smoothstep' },
+    { id: 'e-mic-gnd', source: 'mic1', target: 'g1', sourceHandle: 'gnd', targetHandle: 'in', type: 'smoothstep' },
+
+    // Push-pull output: NPN emitter + PNP emitter tied together → Cout
+    { id: 'e-q1e-cout', source: 'q1', target: 'cout', sourceHandle: 'e', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-q2e-cout', source: 'q2', target: 'cout', sourceHandle: 'e', targetHandle: 'in', type: 'smoothstep' },
+
+    // PNP collector to ground
+    { id: 'e-q2c-gnd', source: 'q2', target: 'g1', sourceHandle: 'c', targetHandle: 'in', type: 'smoothstep' },
+
+    // Output: Cout → Speaker → GND
+    { id: 'e-cout-spk', source: 'cout', target: 'spk1', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-spk-gnd', source: 'spk1', target: 'g1', sourceHandle: 'gnd', targetHandle: 'in', type: 'smoothstep' },
+  ]
+};
+
 export const presets: Record<string, CircuitPreset> = {
   basicBlink,
   timer555Blink,
   sineAudio,
   micSpeaker,
-  bjtAmp
+  bjtAmp,
+  classBamp
 };
