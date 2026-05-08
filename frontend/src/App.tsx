@@ -35,6 +35,7 @@ import { NmosNode } from './components/nodes/NmosNode';
 import { PmosNode } from './components/nodes/PmosNode';
 import { DiodeNode } from './components/nodes/DiodeNode';
 import { ZenerDiodeNode } from './components/nodes/ZenerDiodeNode';
+import { ACVoltageNode } from './components/nodes/ACVoltageNode';
 import { generateSpiceNetlist } from './utils/spice';
 import { Play, Square, Trash2 } from 'lucide-react';
 import { createNgspiceSpiceEngine } from '@tscircuit/ngspice-spice-engine';
@@ -59,6 +60,7 @@ const nodeTypes = {
   pmos: PmosNode,
   diode: DiodeNode,
   zener: ZenerDiodeNode,
+  acvoltage: ACVoltageNode,
 };
 
 let engineInstance: any = null;
@@ -205,6 +207,29 @@ function Sidebar() {
 
       <div 
         className="border border-gray-300 rounded p-3 cursor-grab hover:bg-gray-50 flex flex-col items-center gap-2"
+        onDragStart={(e) => onDragStart(e, 'voltage', '5V')} draggable
+      >
+        <div className="bg-white border-2 border-red-800 rounded-full w-10 h-10 flex flex-col items-center justify-center">
+          <span className="text-[10px] font-bold">+</span>
+          <span className="text-[10px] font-bold">-</span>
+        </div>
+        <span className="text-sm font-medium text-center">DC Source</span>
+      </div>
+
+      <div 
+        className="border border-gray-300 rounded p-3 cursor-grab hover:bg-gray-50 flex flex-col items-center gap-2"
+        onDragStart={(e) => onDragStart(e, 'acvoltage', '10V 60Hz')} draggable
+      >
+        <div className="bg-white border-2 border-red-800 rounded-full w-10 h-10 flex flex-col items-center justify-center">
+           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-800">
+             <path d="M4 12 c 4 -8, 12 8, 16 0" />
+           </svg>
+        </div>
+        <span className="text-sm font-medium text-center">AC Source</span>
+      </div>
+
+      <div 
+        className="border border-gray-300 rounded p-3 cursor-grab hover:bg-gray-50 flex flex-col items-center gap-2"
         onDragStart={(e) => onDragStart(e, 'signalgen')} draggable
       >
         <div className="bg-blue-100 border-2 border-blue-600 rounded w-16 h-10 flex flex-col items-center justify-center">
@@ -275,6 +300,18 @@ function PropertiesPanel({ selectedNode, setNodes, isSimulating, runSimulation }
           <label className="block text-xs font-medium text-gray-700 mb-1">Voltage (V)</label>
           <input type="text" value={(selectedNode.data.label as string) || '5V'} onChange={e => updateData('label', e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
         </div>
+      )}
+      {selectedNode.type === 'acvoltage' && (
+        <>
+          <div className="mb-3">
+            <label className="block text-xs font-medium text-gray-700 mb-1">Amplitude (V)</label>
+            <input type="number" step="1" value={(selectedNode.data.amplitude as number) || 10} onChange={e => { updateData('amplitude', parseFloat(e.target.value)); updateData('label', `${e.target.value}V ${selectedNode.data.frequency || 60}Hz`); }} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
+          </div>
+          <div className="mb-3">
+            <label className="block text-xs font-medium text-gray-700 mb-1">Frequency (Hz)</label>
+            <input type="number" step="1" value={(selectedNode.data.frequency as number) || 60} onChange={e => { updateData('frequency', parseFloat(e.target.value)); updateData('label', `${selectedNode.data.amplitude || 10}V ${e.target.value}Hz`); }} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
+          </div>
+        </>
       )}
       {selectedNode.type === 'resistor' && (
         <div className="mb-3">
@@ -549,21 +586,32 @@ export default function App() {
         }
 
         if (n.type === 'scope') {
-          const inNet = portToNet[`${n.id}-in`];
-          const gndNet = portToNet[`${n.id}-gnd`]; // often 0 if connected to ground
+          const ch1Net = portToNet[`${n.id}-ch1`];
+          const ch2Net = portToNet[`${n.id}-ch2`];
+          const gndNet = portToNet[`${n.id}-gnd`]; 
           
-          const inGraph = voltageGraphs.find((g: any) => g.name.toLowerCase() === inNet?.toLowerCase());
+          const ch1Graph = voltageGraphs.find((g: any) => g.name.toLowerCase() === ch1Net?.toLowerCase());
+          const ch2Graph = voltageGraphs.find((g: any) => g.name.toLowerCase() === ch2Net?.toLowerCase());
           const gndGraph = voltageGraphs.find((g: any) => g.name.toLowerCase() === gndNet?.toLowerCase());
           
-          let voltageData: {t: number, v: number}[] = [];
-          if (inGraph) {
-             voltageData = inGraph.timestamps_ms.map((t: number, i: number) => {
-               const vIn = inGraph.voltage_levels[i];
+          let voltageData1: {t: number, v: number}[] = [];
+          let voltageData2: {t: number, v: number}[] = [];
+
+          if (ch1Graph) {
+             voltageData1 = ch1Graph.timestamps_ms.map((t: number, i: number) => {
+               const vIn = ch1Graph.voltage_levels[i];
                const vGnd = gndGraph ? gndGraph.voltage_levels[i] : 0;
                return { t, v: vIn - vGnd };
              });
           }
-          return { ...n, data: { ...n.data, voltageData } };
+          if (ch2Graph) {
+             voltageData2 = ch2Graph.timestamps_ms.map((t: number, i: number) => {
+               const vIn = ch2Graph.voltage_levels[i];
+               const vGnd = gndGraph ? gndGraph.voltage_levels[i] : 0;
+               return { t, v: vIn - vGnd };
+             });
+          }
+          return { ...n, data: { ...n.data, voltageData1, voltageData2 } };
         }
 
         if (n.type === 'speaker') {

@@ -222,6 +222,54 @@ export const classABamp: CircuitPreset = {
   ]
 };
 
+export const bridgeRectifier: CircuitPreset = {
+  name: 'Full Bridge Rectifier',
+  nodes: [
+    { id: 'vac', type: 'acvoltage', position: { x: 50, y: 200 }, data: { label: '10V 60Hz', amplitude: 10, frequency: 60 } },
+    
+    // Diode bridge
+    { id: 'd1', type: 'diode', position: { x: 300, y: 100 }, data: { label: 'D1' } },
+    { id: 'd2', type: 'diode', position: { x: 300, y: 300 }, data: { label: 'D2' } },
+    { id: 'd3', type: 'diode', position: { x: 500, y: 100 }, data: { label: 'D3' } },
+    { id: 'd4', type: 'diode', position: { x: 500, y: 300 }, data: { label: 'D4' } },
+    
+    // Load & Filter
+    { id: 'rload', type: 'resistor', position: { x: 750, y: 200 }, data: { label: '1k', resistance: 1000 } },
+    { id: 'cfilter', type: 'capacitor', position: { x: 900, y: 200 }, data: { label: '100u', capacitance: 100e-6 } },
+    
+    // Scope
+    { id: 'scope1', type: 'scope', position: { x: 1100, y: 200 }, data: { label: 'Input vs Output' } },
+    
+    // GND
+    { id: 'gnd1', type: 'ground', position: { x: 600, y: 500 }, data: { label: 'GND' } },
+  ],
+  edges: [
+    // AC Source to bridge
+    { id: 'e-vac-pos-d1', source: 'vac', target: 'd1', sourceHandle: 'pos', targetHandle: 'anode', type: 'smoothstep' },
+    { id: 'e-vac-pos-d2', source: 'vac', target: 'd2', sourceHandle: 'pos', targetHandle: 'cathode', type: 'smoothstep' },
+    { id: 'e-vac-neg-d3', source: 'vac', target: 'd3', sourceHandle: 'neg', targetHandle: 'anode', type: 'smoothstep' },
+    { id: 'e-vac-neg-d4', source: 'vac', target: 'd4', sourceHandle: 'neg', targetHandle: 'cathode', type: 'smoothstep' },
+    
+    // Bridge Positive output
+    { id: 'e-d1-pos', source: 'd1', target: 'rload', sourceHandle: 'cathode', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-d3-pos', source: 'd3', target: 'rload', sourceHandle: 'cathode', targetHandle: 'in', type: 'smoothstep' },
+    
+    // Bridge Negative output (GND)
+    { id: 'e-d2-neg', source: 'd2', target: 'gnd1', sourceHandle: 'anode', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-d4-neg', source: 'd4', target: 'gnd1', sourceHandle: 'anode', targetHandle: 'in', type: 'smoothstep' },
+    
+    // Load and Filter connections
+    { id: 'e-rl-c', source: 'rload', target: 'cfilter', sourceHandle: 'in', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-rl-gnd', source: 'rload', target: 'gnd1', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-c-gnd', source: 'cfilter', target: 'gnd1', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
+    
+    // Scope connections
+    { id: 'e-scope-ch1', source: 'vac', target: 'scope1', sourceHandle: 'pos', targetHandle: 'ch1', type: 'smoothstep' },
+    { id: 'e-scope-ch2', source: 'rload', target: 'scope1', sourceHandle: 'in', targetHandle: 'ch2', type: 'smoothstep' },
+    { id: 'e-scope-gnd', source: 'scope1', target: 'gnd1', sourceHandle: 'gnd', targetHandle: 'in', type: 'smoothstep' },
+  ]
+};
+
 export const presets: Record<string, CircuitPreset> = {
   basicBlink,
   timer555Blink,
@@ -229,5 +277,6 @@ export const presets: Record<string, CircuitPreset> = {
   micSpeaker,
   bjtAmp,
   classBamp,
-  classABamp
+  classABamp,
+  bridgeRectifier
 };

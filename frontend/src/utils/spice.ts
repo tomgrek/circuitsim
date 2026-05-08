@@ -90,6 +90,13 @@ export function generateSpiceNetlist(nodes: Node[], edges: Edge[], simLength: nu
       const n2 = getNet(node.id, 'neg');
       netlist += `V_${node.id} ${n1} ${n2} DC ${val}\n`;
     }
+    else if (node.type === 'acvoltage') {
+      const amp = node.data.amplitude !== undefined ? Number(node.data.amplitude) : 10;
+      const freq = node.data.frequency !== undefined ? Number(node.data.frequency) : 60;
+      const n1 = getNet(node.id, 'pos');
+      const n2 = getNet(node.id, 'neg');
+      netlist += `V_${node.id} ${n1} ${n2} SINE(0 ${amp} ${freq})\n`;
+    }
     else if (node.type === 'led') {
       const n1 = getNet(node.id, 'anode');
       const n2 = getNet(node.id, 'cathode');

@@ -1,36 +1,69 @@
 import { Handle, Position } from '@xyflow/react';
 
 export function ScopeNode({ data }: any) {
-  const points = data.voltageData || []; // Array of {t, v}
+  const points1 = data.voltageData1 || []; 
+  const points2 = data.voltageData2 || []; 
   
-  let polylinePoints = "";
-  if (points.length > 0) {
-    const minV = Math.min(...points.map((p: any) => p.v));
-    const maxV = Math.max(...points.map((p: any) => p.v));
-    const range = Math.max(maxV - minV, 0.1);
+  const getPolyline = (points: {t: number, v: number}[], color: string) => {
+    if (points.length === 0) return null;
     
-    // Scale to SVG 100x60
-    polylinePoints = points.map((p: any, i: number) => {
+    // Find min/max across BOTH channels for a shared scale? 
+    // Or independent? User said side by side, but usually scopes overlay or split.
+    // Let's do shared scale if both exist, or fixed scale.
+    // Actually, fixed scale or auto-scale based on both is better.
+    const allV = [...points1.map(p => p.v), ...points2.map(p => p.v)];
+    const minV = allV.length > 0 ? Math.min(...allV) : -5;
+    const maxV = allV.length > 0 ? Math.max(...allV) : 5;
+    const range = Math.max(maxV - minV, 0.1);
+
+    const polylinePoints = points.map((p: any, i: number) => {
       const x = (i / (points.length - 1)) * 100;
       const y = 60 - ((p.v - minV) / range) * 60;
       return `${x},${y}`;
     }).join(' ');
-  }
+
+    return <polyline points={polylinePoints} fill="none" stroke={color} strokeWidth="1.5" />;
+  };
 
   return (
-    <div className="bg-gray-800 border-2 border-gray-900 rounded-md p-2 w-36 h-28 flex flex-col items-center relative shadow-lg">
-      <div className="text-[10px] text-gray-300 mb-1 w-full text-center font-mono border-b border-gray-700 pb-1">Oscilloscope</div>
+    <div className="bg-gray-800 border-2 border-gray-900 rounded-md p-2 w-48 h-32 flex flex-col items-center relative shadow-lg">
+      <div className="text-[10px] text-gray-300 mb-1 w-full text-center font-mono border-b border-gray-700 pb-1 flex justify-between px-1">
+        <span className="text-yellow-400">CH1</span>
+        <span>Oscilloscope</span>
+        <span className="text-cyan-400">CH2</span>
+      </div>
       <div className="bg-black w-full flex-1 rounded border border-gray-600 overflow-hidden relative flex items-center justify-center">
-        {points.length > 0 ? (
-          <svg width="100%" height="100%" viewBox="0 0 100 60" preserveAspectRatio="none">
-            <polyline points={polylinePoints} fill="none" stroke="#22c55e" strokeWidth="1.5" />
+        {/* Grid lines */}
+        <svg width="100%" height="100%" viewBox="0 0 100 60" preserveAspectRatio="none" className="absolute inset-0 opacity-20">
+          <line x1="0" y1="30" x2="100" y2="30" stroke="white" strokeWidth="0.5" />
+          <line x1="50" y1="0" x2="50" y2="60" stroke="white" strokeWidth="0.5" />
+          <line x1="0" y1="15" x2="100" y2="15" stroke="white" strokeWidth="0.2" />
+          <line x1="0" y1="45" x2="100" y2="45" stroke="white" strokeWidth="0.2" />
+          <line x1="25" y1="0" x2="25" y2="60" stroke="white" strokeWidth="0.2" />
+          <line x1="75" y1="0" x2="75" y2="60" stroke="white" strokeWidth="0.2" />
+        </svg>
+
+        {points1.length > 0 || points2.length > 0 ? (
+          <svg width="100%" height="100%" viewBox="0 0 100 60" preserveAspectRatio="none" className="relative z-10">
+            {getPolyline(points1, "#facc15")} {/* yellow-400 */}
+            {getPolyline(points2, "#22d3ee")} {/* cyan-400 */}
           </svg>
         ) : (
           <span className="text-gray-500 text-[8px] uppercase tracking-wider">No Data</span>
         )}
       </div>
-      <Handle type="target" position={Position.Left} id="in" className="w-3 h-3 bg-blue-500" />
-      <Handle type="target" position={Position.Bottom} id="gnd" className="w-3 h-3 bg-black" style={{ left: '50%' }} />
+      
+      {/* CH1 input */}
+      <Handle type="target" position={Position.Left} id="ch1" className="w-3 h-3 bg-yellow-400" style={{ top: '40%' }} />
+      <div className="absolute left-1 top-[40%] translate-y-[-50%] text-[8px] text-yellow-400 font-bold pointer-events-none ml-3">CH1</div>
+      
+      {/* CH2 input */}
+      <Handle type="target" position={Position.Left} id="ch2" className="w-3 h-3 bg-cyan-400" style={{ top: '70%' }} />
+      <div className="absolute left-1 top-[70%] translate-y-[-50%] text-[8px] text-cyan-400 font-bold pointer-events-none ml-3">CH2</div>
+
+      {/* GND input */}
+      <Handle type="target" position={Position.Right} id="gnd" className="w-3 h-3 bg-gray-500" />
+      <div className="absolute right-4 top-1/2 translate-y-[-50%] text-[8px] text-gray-500 font-bold pointer-events-none">GND</div>
     </div>
   );
 }
