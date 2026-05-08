@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, type DragEvent } from 'react';
+import { useState, useCallback, useRef, useEffect, type DragEvent } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -396,6 +396,19 @@ export default function App() {
   const [simLength, setSimLength] = useState(1.0);
   const [simResolution, setSimResolution] = useState<'normal' | 'high'>('normal');
   const [selectedPreset, setSelectedPreset] = useState('basicBlink');
+
+  // Keep microphone nodes aware of the simulation duration
+  useEffect(() => {
+    setNodes(nds => {
+      const hasMic = nds.some(n => n.type === 'microphone');
+      if (!hasMic) return nds;
+      return nds.map(n =>
+        n.type === 'microphone' && n.data.simLength !== simLength
+          ? { ...n, data: { ...n.data, simLength } }
+          : n
+      );
+    });
+  }, [simLength, setNodes]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)),

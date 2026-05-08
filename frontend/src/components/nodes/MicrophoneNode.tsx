@@ -70,13 +70,14 @@ export function MicrophoneNode({ id, data }: any) {
         mediaRecorder.current.start();
         setIsRecording(true);
         
-        // Auto stop after 1 second
+        // Auto stop after the simulation duration (capped at 5s)
+        const recordMs = Math.min((data.simLength ?? 1.0) * 1000, 5000);
         setTimeout(() => {
            if (mediaRecorder.current && mediaRecorder.current.state === 'recording') {
               mediaRecorder.current.stop();
               setIsRecording(false);
            }
-        }, 1000);
+        }, recordMs);
       } catch (err) {
         console.error("Mic access denied", err);
       }

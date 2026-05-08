@@ -1,5 +1,15 @@
 import { type Node, type Edge } from '@xyflow/react';
 
+/** Strip Unicode symbols from component labels to produce valid SPICE values.
+ *  e.g. '47kΩ' → '47k', '10µF' → '10uF' */
+function sanitizeSpiceValue(val: string): string {
+  return val
+    .replace(/Ω/g, '')        // Remove ohm symbol
+    .replace(/µ/g, 'u')       // Replace micro sign with 'u'
+    .replace(/[^\x20-\x7E]/g, '') // Strip any remaining non-ASCII
+    .trim();
+}
+
 export function generateSpiceNetlist(nodes: Node[], edges: Edge[], simLength: number = 1.0, simResolution: 'normal' | 'high' = 'normal'): { netlist: string; portToNet: Record<string, string> } {
   let netlist = "Circuit Simulation\n";
   
@@ -62,13 +72,13 @@ export function generateSpiceNetlist(nodes: Node[], edges: Edge[], simLength: nu
   // 2. Generate SPICE statements for each node
   nodes.forEach(node => {
     if (node.type === 'resistor') {
-      const val = node.data.label || '1k';
+      const val = node.data.resistance !== undefined ? node.data.resistance : sanitizeSpiceValue(String(node.data.label || '1k'));
       const n1 = getNet(node.id, 'in');
       const n2 = getNet(node.id, 'out');
       netlist += `R_${node.id} ${n1} ${n2} ${val}\n`;
     } 
     else if (node.type === 'capacitor') {
-      const val = node.data.label || '10u';
+      const val = node.data.capacitance !== undefined ? node.data.capacitance : sanitizeSpiceValue(String(node.data.label || '10u'));
       const n1 = getNet(node.id, 'in');
       const n2 = getNet(node.id, 'out');
       netlist += `C_${node.id} ${n1} ${n2} ${val}\n`;
