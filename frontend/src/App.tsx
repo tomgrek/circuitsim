@@ -33,6 +33,8 @@ import { NpnNode } from './components/nodes/NpnNode';
 import { PnpNode } from './components/nodes/PnpNode';
 import { NmosNode } from './components/nodes/NmosNode';
 import { PmosNode } from './components/nodes/PmosNode';
+import { DiodeNode } from './components/nodes/DiodeNode';
+import { ZenerDiodeNode } from './components/nodes/ZenerDiodeNode';
 import { generateSpiceNetlist } from './utils/spice';
 import { Play, Square, Trash2 } from 'lucide-react';
 import { createNgspiceSpiceEngine } from '@tscircuit/ngspice-spice-engine';
@@ -55,6 +57,8 @@ const nodeTypes = {
   pnp: PnpNode,
   nmos: NmosNode,
   pmos: PmosNode,
+  diode: DiodeNode,
+  zener: ZenerDiodeNode,
 };
 
 let engineInstance: any = null;
@@ -130,6 +134,32 @@ function Sidebar() {
           <span className="text-[8px] font-bold">10uF</span>
         </div>
         <span className="text-sm font-medium">Capacitor</span>
+      </div>
+
+      <div 
+        className="border border-gray-300 rounded p-3 cursor-grab hover:bg-gray-50 flex flex-col items-center gap-2"
+        onDragStart={(e) => onDragStart(e, 'diode', '1N4148')} draggable
+      >
+        <div className="bg-white border-2 border-gray-400 rounded w-10 h-10 flex items-center justify-center">
+           <svg viewBox="0 0 40 40" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M5 20 H 12 M28 20 H 35 M12 10 V 30 L 28 20 Z" fill="currentColor" />
+              <path d="M28 10 V 30" strokeWidth="3" />
+           </svg>
+        </div>
+        <span className="text-sm font-medium">Diode</span>
+      </div>
+
+      <div 
+        className="border border-gray-300 rounded p-3 cursor-grab hover:bg-gray-50 flex flex-col items-center gap-2"
+        onDragStart={(e) => onDragStart(e, 'zener', '5.1V')} draggable
+      >
+        <div className="bg-white border-2 border-gray-400 rounded w-10 h-10 flex items-center justify-center">
+           <svg viewBox="0 0 40 40" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M5 20 H 12 M28 20 H 35 M12 10 V 30 L 28 20 Z" fill="currentColor" />
+              <path d="M28 10 V 30 M28 10 H 32 M24 30 H 28" strokeWidth="3" />
+           </svg>
+        </div>
+        <span className="text-sm font-medium">Zener</span>
       </div>
 
       <div 
@@ -318,6 +348,13 @@ function PropertiesPanel({ selectedNode, setNodes, isSimulating, runSimulation }
             <input type="number" step="0.01" value={(selectedNode.data.kp as number) || (selectedNode.type === 'nmos' ? 0.05 : 0.02)} onChange={e => updateData('kp', parseFloat(e.target.value))} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
           </div>
         </>
+      )}
+      {selectedNode.type === 'zener' && (
+        <div className="mb-3">
+          <label className="block text-xs font-medium text-gray-700 mb-1">Breakdown Voltage (V)</label>
+          <input type="text" value={(selectedNode.data.label as string) || '5.1V'} onChange={e => updateData('label', e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
+          <div className="text-[10px] text-gray-400 mt-1">Common: 3.3V, 5.1V, 12V</div>
+        </div>
       )}
       {selectedNode.type === 'microphone' && (
         <div className="mb-3">

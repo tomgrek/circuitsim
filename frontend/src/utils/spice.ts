@@ -101,6 +101,19 @@ export function generateSpiceNetlist(nodes: Node[], edges: Edge[], simLength: nu
       const n_coeff = v_drop / 1.2;
       netlist += `.model LED_MODEL_${node.id} D(IS=1e-22 RS=5 N=${n_coeff})\n`;
     }
+    else if (node.type === 'diode') {
+      const n1 = getNet(node.id, 'anode');
+      const n2 = getNet(node.id, 'cathode');
+      netlist += `D_${node.id} ${n1} ${n2} DIODE_MODEL_${node.id}\n`;
+      netlist += `.model DIODE_MODEL_${node.id} D(IS=1e-14 RS=0.1 N=1)\n`;
+    }
+    else if (node.type === 'zener') {
+      const n1 = getNet(node.id, 'anode');
+      const n2 = getNet(node.id, 'cathode');
+      const bv = sanitizeSpiceValue(String(node.data.label || '5.1V')).replace(/[Vv]$/, '');
+      netlist += `D_${node.id} ${n1} ${n2} ZENER_MODEL_${node.id}\n`;
+      netlist += `.model ZENER_MODEL_${node.id} D(IS=1e-11 BV=${bv} IBV=1e-3)\n`;
+    }
     else if (node.type === 'opamp') {
       hasOpAmp = true;
       const in_non = getNet(node.id, 'in_non');
