@@ -111,8 +111,10 @@ export function generateSpiceNetlist(nodes: Node[], edges: Edge[], simLength: nu
     else if (node.type === 'diode') {
       const n1 = getNet(node.id, 'anode');
       const n2 = getNet(node.id, 'cathode');
+      const v_drop = Number(node.data.v_drop || 0.7);
+      const n_coeff = v_drop / 0.7;
       netlist += `D_${node.id} ${n1} ${n2} DIODE_MODEL_${node.id}\n`;
-      netlist += `.model DIODE_MODEL_${node.id} D(IS=1e-14 RS=0.1 N=1)\n`;
+      netlist += `.model DIODE_MODEL_${node.id} D(IS=1e-14 RS=0.1 N=${n_coeff})\n`;
     }
     else if (node.type === 'zener') {
       const n1 = getNet(node.id, 'anode');

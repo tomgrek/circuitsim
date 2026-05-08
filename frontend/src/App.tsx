@@ -386,6 +386,13 @@ function PropertiesPanel({ selectedNode, setNodes, isSimulating, runSimulation }
           </div>
         </>
       )}
+      {selectedNode.type === 'diode' && (
+        <div className="mb-3">
+          <label className="block text-xs font-medium text-gray-700 mb-1">Forward Voltage Drop (V)</label>
+          <input type="number" step="0.1" value={(selectedNode.data.v_drop as number) || 0.7} onChange={e => updateData('v_drop', parseFloat(e.target.value))} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
+          <div className="text-[10px] text-gray-400 mt-1">Silicon: 0.7V, Germanium: 0.3V</div>
+        </div>
+      )}
       {selectedNode.type === 'zener' && (
         <div className="mb-3">
           <label className="block text-xs font-medium text-gray-700 mb-1">Breakdown Voltage (V)</label>
