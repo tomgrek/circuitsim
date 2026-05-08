@@ -1,16 +1,12 @@
 import { Handle, Position } from '@xyflow/react';
 
 export function ScopeNode({ data }: any) {
-  const points1 = data.voltageData1 || []; 
+  const points1 = data.voltageData1 || data.voltageData || []; // Fallback for old 'voltageData'
   const points2 = data.voltageData2 || []; 
   
   const getPolyline = (points: {t: number, v: number}[], color: string) => {
     if (points.length === 0) return null;
     
-    // Find min/max across BOTH channels for a shared scale? 
-    // Or independent? User said side by side, but usually scopes overlay or split.
-    // Let's do shared scale if both exist, or fixed scale.
-    // Actually, fixed scale or auto-scale based on both is better.
     const allV = [...points1.map(p => p.v), ...points2.map(p => p.v)];
     const minV = allV.length > 0 ? Math.min(...allV) : -5;
     const maxV = allV.length > 0 ? Math.max(...allV) : 5;
@@ -53,17 +49,22 @@ export function ScopeNode({ data }: any) {
         )}
       </div>
       
-      {/* CH1 input */}
-      <Handle type="target" position={Position.Left} id="ch1" className="w-3 h-3 bg-yellow-400" style={{ top: '40%' }} />
-      <div className="absolute left-1 top-[40%] translate-y-[-50%] text-[8px] text-yellow-400 font-bold pointer-events-none ml-3">CH1</div>
+      {/* CH1 input (Bidirectional) */}
+      <Handle type="target" position={Position.Left} id="ch1" className="w-3 h-3 bg-yellow-400" style={{ top: '30%' }} />
+      <Handle type="source" position={Position.Left} id="ch1" className="w-3 h-3 bg-yellow-400" style={{ top: '30%' }} />
+      {/* Fallback for old 'in' handle ID */}
+      <Handle type="target" position={Position.Left} id="in" className="w-1 h-1 bg-transparent border-none opacity-0" style={{ top: '30%' }} />
+      <div className="absolute left-1 top-[30%] translate-y-[-50%] text-[8px] text-yellow-400 font-bold pointer-events-none ml-3">CH1</div>
       
-      {/* CH2 input */}
-      <Handle type="target" position={Position.Left} id="ch2" className="w-3 h-3 bg-cyan-400" style={{ top: '70%' }} />
-      <div className="absolute left-1 top-[70%] translate-y-[-50%] text-[8px] text-cyan-400 font-bold pointer-events-none ml-3">CH2</div>
+      {/* CH2 input (Bidirectional) */}
+      <Handle type="target" position={Position.Left} id="ch2" className="w-3 h-3 bg-cyan-400" style={{ top: '60%' }} />
+      <Handle type="source" position={Position.Left} id="ch2" className="w-3 h-3 bg-cyan-400" style={{ top: '60%' }} />
+      <div className="absolute left-1 top-[60%] translate-y-[-50%] text-[8px] text-cyan-400 font-bold pointer-events-none ml-3">CH2</div>
 
-      {/* GND input */}
-      <Handle type="target" position={Position.Right} id="gnd" className="w-3 h-3 bg-gray-500" />
-      <div className="absolute right-4 top-1/2 translate-y-[-50%] text-[8px] text-gray-500 font-bold pointer-events-none">GND</div>
+      {/* GND input (Bidirectional) */}
+      <Handle type="target" position={Position.Left} id="gnd" className="w-3 h-3 bg-gray-500" style={{ top: '90%' }} />
+      <Handle type="source" position={Position.Left} id="gnd" className="w-3 h-3 bg-gray-500" style={{ top: '90%' }} />
+      <div className="absolute left-1 top-[90%] translate-y-[-50%] text-[8px] text-gray-500 font-bold pointer-events-none ml-3">GND</div>
     </div>
   );
 }
