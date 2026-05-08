@@ -13,16 +13,13 @@ export function SpeakerNode({ data }: any) {
       if (ctx.state === 'suspended') ctx.resume();
 
       const sampleRate = ctx.sampleRate;
-      // SPICE transient analysis usually has arbitrary time steps, 
-      // but let's assume it's linearly interpolated or we just play it as is
-      // A better way is to resample, but for simplicity we'll just map points.
-      
       const durationSec = data.voltageData[data.voltageData.length - 1].t / 1000;
       const frameCount = Math.max(1, Math.floor(sampleRate * durationSec));
       const buffer = ctx.createBuffer(1, frameCount, sampleRate);
       const channelData = buffer.getChannelData(0);
 
-      // Cubic Hermite Spline interpolation to audio sample rate
+      // First pass: interpolate SPICE data to audio sample rate
+      const rawSamples = new Float32Array(frameCount);
       let dataIdx = 0;
       for (let i = 0; i < frameCount; i++) {
         const t_ms = (i / sampleRate) * 1000;
@@ -41,23 +38,43 @@ export function SpeakerNode({ data }: any) {
           const t = Math.max(0, Math.min(1, (t_ms - p1.t) / (p2.t - p1.t)));
           const t2 = t * t;
           const t3 = t2 * t;
-          
-          // Compute slopes (derivatives) with respect to time
           const m1 = (p2.v - p0.v) / (p2.t - p0.t || 1);
           const m2 = (p3.v - p1.v) / (p3.t - p1.t || 1);
-          
           const dt = p2.t - p1.t;
-          
-          // Hermite basis functions
           const h00 = 2 * t3 - 3 * t2 + 1;
           const h10 = t3 - 2 * t2 + t;
           const h01 = -2 * t3 + 3 * t2;
           const h11 = t3 - t2;
-          
           v = h00 * p1.v + h10 * dt * m1 + h01 * p2.v + h11 * dt * m2;
         }
-        
-        channelData[i] = Math.max(-1, Math.min(1, v / 5.0)); 
+        rawSamples[i] = v;
+      }
+
+      // Second pass: AC-couple (remove DC offset) and auto-scale
+      // Skip the first 10% of samples to avoid the coupling cap charging transient
+      const skipSamples = Math.floor(frameCount * 0.1);
+      let sum = 0;
+      let count = 0;
+      for (let i = skipSamples; i < frameCount; i++) {
+        sum += rawSamples[i];
+        count++;
+      }
+      const dcOffset = count > 0 ? sum / count : 0;
+
+      // Find peak amplitude after DC removal
+      let peak = 0;
+      for (let i = skipSamples; i < frameCount; i++) {
+        const ac = Math.abs(rawSamples[i] - dcOffset);
+        if (ac > peak) peak = ac;
+      }
+      // Normalize so peak maps to ~0.8 (leave headroom), minimum scale of 1V
+      const scale = peak > 0.001 ? 0.8 / peak : 1.0;
+
+      for (let i = 0; i < frameCount; i++) {
+        // For the initial transient region, fade in to avoid the pop
+        const fadeIn = i < skipSamples ? i / skipSamples : 1.0;
+        const ac = (rawSamples[i] - dcOffset) * scale * fadeIn;
+        channelData[i] = Math.max(-1, Math.min(1, ac));
       }
 
       const source = ctx.createBufferSource();
