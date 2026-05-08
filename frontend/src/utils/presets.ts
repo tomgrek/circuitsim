@@ -145,69 +145,78 @@ export const micSpeaker: CircuitPreset = {
 };
 
 export const classBamp: CircuitPreset = {
-  name: 'Class AB Push-Pull Amp',
+  name: 'Class B Push-Pull',
   nodes: [
-    // Power supply
     { id: 'v1', type: 'voltage', position: { x: 50, y: 50 }, data: { label: '12V', voltage: 12 } },
-
-    // Input: microphone
-    { id: 'mic1', type: 'microphone', position: { x: 50, y: 350 }, data: { label: 'Mic', amplification: 50 } },
-
-    // Input coupling capacitor
-    { id: 'cin', type: 'capacitor', position: { x: 250, y: 350 }, data: { label: '10uF', capacitance: 10e-6 } },
-
-    // Bias network: R1/R2 divider + Rbias1/Rbias2 to split bases apart by ~1.2V
-    { id: 'r1', type: 'resistor', position: { x: 400, y: 100 }, data: { label: '4.7k', resistance: 4700 } },
-    { id: 'r2', type: 'resistor', position: { x: 400, y: 550 }, data: { label: '4.7k', resistance: 4700 } },
-    { id: 'rbias1', type: 'resistor', position: { x: 500, y: 230 }, data: { label: '560', resistance: 560 } },
-    { id: 'rbias2', type: 'resistor', position: { x: 500, y: 470 }, data: { label: '560', resistance: 560 } },
-
-    // Complementary push-pull pair
-    { id: 'q1', type: 'npn', position: { x: 680, y: 220 }, data: { label: 'NPN', bf: 200 } },
-    { id: 'q2', type: 'pnp', position: { x: 680, y: 450 }, data: { label: 'PNP', bf: 200 } },
-
-    // Emitter degeneration resistors (reduce crossover distortion)
-    { id: 're1', type: 'resistor', position: { x: 850, y: 280 }, data: { label: '22', resistance: 22 } },
-    { id: 're2', type: 'resistor', position: { x: 850, y: 420 }, data: { label: '22', resistance: 22 } },
-
-    // Output coupling capacitor & speaker
-    { id: 'cout', type: 'capacitor', position: { x: 1020, y: 350 }, data: { label: '470uF', capacitance: 470e-6 } },
-    { id: 'spk1', type: 'speaker', position: { x: 1200, y: 350 }, data: { label: 'Speaker', acCouple: true, normalize: true } },
-
-    // Ground
-    { id: 'g1', type: 'ground', position: { x: 50, y: 650 }, data: { label: 'GND' } },
+    { id: 'mic1', type: 'microphone', position: { x: 50, y: 300 }, data: { label: 'Mic', amplification: 50 } },
+    { id: 'cin', type: 'capacitor', position: { x: 250, y: 300 }, data: { label: '10uF', capacitance: 10e-6 } },
+    { id: 'r1', type: 'resistor', position: { x: 400, y: 150 }, data: { label: '10k', resistance: 10000 } },
+    { id: 'r2', type: 'resistor', position: { x: 400, y: 450 }, data: { label: '10k', resistance: 10000 } },
+    { id: 'q1', type: 'npn', position: { x: 600, y: 200 }, data: { label: 'NPN', bf: 200 } },
+    { id: 'q2', type: 'pnp', position: { x: 600, y: 400 }, data: { label: 'PNP', bf: 200 } },
+    { id: 'cout', type: 'capacitor', position: { x: 800, y: 320 }, data: { label: '470uF', capacitance: 470e-6 } },
+    { id: 'spk1', type: 'speaker', position: { x: 1000, y: 320 }, data: { label: 'Speaker', acCouple: true, normalize: true } },
+    { id: 'g1', type: 'ground', position: { x: 50, y: 550 }, data: { label: 'GND' } },
   ],
   edges: [
-    // Power: VCC to NPN collector and R1
     { id: 'e-v1-q1c', source: 'v1', target: 'q1', sourceHandle: 'pos', targetHandle: 'c', type: 'smoothstep' },
     { id: 'e-v1-r1', source: 'v1', target: 'r1', sourceHandle: 'pos', targetHandle: 'in', type: 'smoothstep' },
     { id: 'e-v1-g1', source: 'v1', target: 'g1', sourceHandle: 'neg', targetHandle: 'in', type: 'smoothstep' },
-
-    // Bias: R1 → Rbias1 → NPN.b (upper bias path)
-    { id: 'e-r1-rbias1', source: 'r1', target: 'rbias1', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
-    { id: 'e-rbias1-q1b', source: 'rbias1', target: 'q1', sourceHandle: 'out', targetHandle: 'b', type: 'smoothstep' },
-    // Bias: R1 → Rbias2 → PNP.b (lower bias path, same midpoint)
-    { id: 'e-r1-rbias2', source: 'r1', target: 'rbias2', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
-    { id: 'e-rbias2-q2b', source: 'rbias2', target: 'q2', sourceHandle: 'out', targetHandle: 'b', type: 'smoothstep' },
-    // Rbias2 also connects down to R2 → GND
-    { id: 'e-rbias1-r2', source: 'rbias1', target: 'r2', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-r1-q1b', source: 'r1', target: 'q1', sourceHandle: 'out', targetHandle: 'b', type: 'smoothstep' },
+    { id: 'e-r1-q2b', source: 'r1', target: 'q2', sourceHandle: 'out', targetHandle: 'b', type: 'smoothstep' },
+    { id: 'e-r1-r2', source: 'r1', target: 'r2', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
     { id: 'e-r2-gnd', source: 'r2', target: 'g1', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
-
-    // Input coupling: mic → Cin → bias midpoint (R1.out node)
     { id: 'e-mic-cin', source: 'mic1', target: 'cin', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
-    { id: 'e-cin-bias', source: 'cin', target: 'rbias1', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-cin-base', source: 'cin', target: 'r1', sourceHandle: 'out', targetHandle: 'out', type: 'smoothstep' },
     { id: 'e-mic-gnd', source: 'mic1', target: 'g1', sourceHandle: 'gnd', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-q1e-cout', source: 'q1', target: 'cout', sourceHandle: 'e', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-q2e-cout', source: 'q2', target: 'cout', sourceHandle: 'e', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-q2c-gnd', source: 'q2', target: 'g1', sourceHandle: 'c', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-cout-spk', source: 'cout', target: 'spk1', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-spk-gnd', source: 'spk1', target: 'g1', sourceHandle: 'gnd', targetHandle: 'in', type: 'smoothstep' },
+  ]
+};
 
-    // Emitter resistors: Q1.e → RE1 → output, Q2.e → RE2 → output
+// Class AB: series bias resistor (Rbias=1.1k) between NPN and PNP base taps
+// Bias chain: VCC → R1(4.7k) → [NPN.b] → Rbias(1.1k) → [PNP.b] → R2(4.7k) → GND
+// Rbias drops ~1.3V at divider current, matching 2×Vbe to eliminate crossover dead zone
+export const classABamp: CircuitPreset = {
+  name: 'Class AB Push-Pull',
+  nodes: [
+    { id: 'v1', type: 'voltage', position: { x: 50, y: 50 }, data: { label: '12V', voltage: 12 } },
+    { id: 'mic1', type: 'microphone', position: { x: 50, y: 350 }, data: { label: 'Mic', amplification: 50 } },
+    { id: 'cin', type: 'capacitor', position: { x: 250, y: 350 }, data: { label: '10uF', capacitance: 10e-6 } },
+    { id: 'r1', type: 'resistor', position: { x: 420, y: 100 }, data: { label: '4.7k', resistance: 4700 } },
+    { id: 'rbias', type: 'resistor', position: { x: 520, y: 340 }, data: { label: '1.1k', resistance: 1100 } },
+    { id: 'r2', type: 'resistor', position: { x: 420, y: 560 }, data: { label: '4.7k', resistance: 4700 } },
+    { id: 'q1', type: 'npn', position: { x: 680, y: 220 }, data: { label: 'NPN', bf: 200 } },
+    { id: 'q2', type: 'pnp', position: { x: 680, y: 450 }, data: { label: 'PNP', bf: 200 } },
+    { id: 're1', type: 'resistor', position: { x: 850, y: 290 }, data: { label: '22', resistance: 22 } },
+    { id: 're2', type: 'resistor', position: { x: 850, y: 420 }, data: { label: '22', resistance: 22 } },
+    { id: 'cout', type: 'capacitor', position: { x: 1020, y: 350 }, data: { label: '470uF', capacitance: 470e-6 } },
+    { id: 'spk1', type: 'speaker', position: { x: 1200, y: 350 }, data: { label: 'Speaker', acCouple: true, normalize: true } },
+    { id: 'g1', type: 'ground', position: { x: 50, y: 650 }, data: { label: 'GND' } },
+  ],
+  edges: [
+    { id: 'e-v1-q1c', source: 'v1', target: 'q1', sourceHandle: 'pos', targetHandle: 'c', type: 'smoothstep' },
+    { id: 'e-v1-r1', source: 'v1', target: 'r1', sourceHandle: 'pos', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-v1-g1', source: 'v1', target: 'g1', sourceHandle: 'neg', targetHandle: 'in', type: 'smoothstep' },
+    // Bias chain: R1.out = NPN.b, then Rbias, then Rbias.out = PNP.b
+    { id: 'e-r1-q1b', source: 'r1', target: 'q1', sourceHandle: 'out', targetHandle: 'b', type: 'smoothstep' },
+    { id: 'e-r1-rbias', source: 'r1', target: 'rbias', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-rbias-q2b', source: 'rbias', target: 'q2', sourceHandle: 'out', targetHandle: 'b', type: 'smoothstep' },
+    { id: 'e-rbias-r2', source: 'rbias', target: 'r2', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-r2-gnd', source: 'r2', target: 'g1', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
+    // Input coupling: mic → Cin → NPN base node
+    { id: 'e-mic-cin', source: 'mic1', target: 'cin', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-cin-bias', source: 'cin', target: 'r1', sourceHandle: 'out', targetHandle: 'out', type: 'smoothstep' },
+    { id: 'e-mic-gnd', source: 'mic1', target: 'g1', sourceHandle: 'gnd', targetHandle: 'in', type: 'smoothstep' },
+    // Emitter resistors → output
     { id: 'e-q1e-re1', source: 'q1', target: 're1', sourceHandle: 'e', targetHandle: 'in', type: 'smoothstep' },
     { id: 'e-q2e-re2', source: 'q2', target: 're2', sourceHandle: 'e', targetHandle: 'in', type: 'smoothstep' },
     { id: 'e-re1-cout', source: 're1', target: 'cout', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
     { id: 'e-re2-cout', source: 're2', target: 'cout', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
-
-    // PNP collector to ground
     { id: 'e-q2c-gnd', source: 'q2', target: 'g1', sourceHandle: 'c', targetHandle: 'in', type: 'smoothstep' },
-
-    // Output: Cout → Speaker → GND
     { id: 'e-cout-spk', source: 'cout', target: 'spk1', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
     { id: 'e-spk-gnd', source: 'spk1', target: 'g1', sourceHandle: 'gnd', targetHandle: 'in', type: 'smoothstep' },
   ]
@@ -219,5 +228,6 @@ export const presets: Record<string, CircuitPreset> = {
   sineAudio,
   micSpeaker,
   bjtAmp,
-  classBamp
+  classBamp,
+  classABamp
 };

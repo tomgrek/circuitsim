@@ -68,6 +68,7 @@ export function generateSpiceNetlist(nodes: Node[], edges: Edge[], simLength: nu
 
   let has555 = false;
   let hasOpAmp = false;
+  let hasAudio = false;
 
   // 2. Generate SPICE statements for each node
   nodes.forEach(node => {
@@ -146,12 +147,14 @@ export function generateSpiceNetlist(nodes: Node[], edges: Edge[], simLength: nu
       const n1 = getNet(node.id, 'in');
       const n2 = getNet(node.id, 'gnd');
       netlist += `R_${node.id} ${n1} ${n2} 8\n`; // 8 ohm speaker load
+      hasAudio = true;
     }
     else if (node.type === 'microphone') {
       const n1 = getNet(node.id, 'out');
       const n2 = getNet(node.id, 'gnd');
       const pwlData = node.data.pwlData as { t: number; v: number }[] | undefined;
       const gain = Number(node.data.amplification ?? 100);
+      if (pwlData && pwlData.length > 0) hasAudio = true;
       // Raw audio values are normalized -1..+1
       // Apply gain as a voltage multiplier: gain=100 → raw * 0.05 * 100 = ±5V peak
       const voltageScale = 0.05 * gain; // 0.05V base (electret mic level) × gain
@@ -262,7 +265,11 @@ S_DIS 7 1 8 state SMOD_DIS
   netlist += `.save all\n`;
   
   // Basic transient analysis (variable total)
-  if (simResolution === 'high') {
+  // Audio circuits need much finer time steps for proper frequency resolution
+  if (hasAudio) {
+    // 0.05ms step → 20kHz Nyquist → captures full audio bandwidth
+    netlist += `.tran 0.05m ${simLength}s 0 0.05m uic\n`;
+  } else if (simResolution === 'high') {
     netlist += `.tran 1m ${simLength}s 0 0.1m uic\n`;
   } else {
     netlist += `.tran 1m ${simLength}s uic\n`;
