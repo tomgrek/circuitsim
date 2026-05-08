@@ -130,9 +130,24 @@ export const bjtAmp: CircuitPreset = {
   ]
 };
 
+export const micSpeaker: CircuitPreset = {
+  name: 'Mic → Speaker',
+  nodes: [
+    { id: 'mic1', type: 'microphone', position: { x: 100, y: 200 }, data: { label: 'Mic', amplification: 100 } },
+    { id: 'spk1', type: 'speaker', position: { x: 400, y: 200 }, data: { label: 'Speaker' } },
+    { id: 'g1', type: 'ground', position: { x: 250, y: 400 }, data: { label: 'GND' } },
+  ],
+  edges: [
+    { id: 'e-mic-spk', source: 'mic1', target: 'spk1', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-mic-g1', source: 'mic1', target: 'g1', sourceHandle: 'gnd', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-spk-g1', source: 'spk1', target: 'g1', sourceHandle: 'gnd', targetHandle: 'in', type: 'smoothstep' },
+  ]
+};
+
 export const presets: Record<string, CircuitPreset> = {
   basicBlink,
   timer555Blink,
   sineAudio,
+  micSpeaker,
   bjtAmp
 };

@@ -141,6 +141,10 @@ export function generateSpiceNetlist(nodes: Node[], edges: Edge[], simLength: nu
       const n1 = getNet(node.id, 'out');
       const n2 = getNet(node.id, 'gnd');
       const pwlData = node.data.pwlData as { t: number; v: number }[] | undefined;
+      const gain = Number(node.data.amplification ?? 100);
+      // Raw audio values are normalized -1..+1
+      // Apply gain as a voltage multiplier: gain=100 → raw * 0.05 * 100 = ±5V peak
+      const voltageScale = 0.05 * gain; // 0.05V base (electret mic level) × gain
       if (pwlData && pwlData.length > 0) {
         // Build PWL with line continuations to avoid exceeding Ngspice's line buffer (~1024 chars)
         const POINTS_PER_LINE = 8;
@@ -150,7 +154,8 @@ export function generateSpiceNetlist(nodes: Node[], edges: Edge[], simLength: nu
           if (i % POINTS_PER_LINE === 0) {
             pwlLines += '+ ';
           }
-          pwlLines += `${p.t.toExponential(6)} ${p.v.toExponential(6)} `;
+          const scaledV = p.v * voltageScale;
+          pwlLines += `${p.t.toExponential(6)} ${scaledV.toExponential(6)} `;
           if ((i + 1) % POINTS_PER_LINE === 0 || i === pwlData.length - 1) {
             pwlLines += '\n';
           }

@@ -9,13 +9,14 @@ export function MicrophoneNode({ id, data }: any) {
   const chunks = useRef<Blob[]>([]);
   const { setNodes } = useReactFlow();
 
-  const updatePwlData = useCallback((points: { t: number; v: number }[]) => {
+  const gain = data.amplification ?? 100;
+
+  const updateNodeData = useCallback((updates: Record<string, any>) => {
     setNodes(nds => nds.map(n =>
       n.id === id
-        ? { ...n, data: { ...n.data, pwlData: points } }
+        ? { ...n, data: { ...n.data, ...updates } }
         : n
     ));
-    setHasData(true);
   }, [id, setNodes]);
 
   const toggleRecord = async () => {
@@ -43,16 +44,18 @@ export function MicrophoneNode({ id, data }: any) {
           const rawData = audioBuffer.getChannelData(0);
           const sampleRate = audioBuffer.sampleRate;
           
-          // Take first 100ms of audio, decimated to ~8kHz to keep PWL manageable
-          const targetDuration = 0.1; // 100ms
+          // Decimate to ~8kHz to keep PWL manageable, take all recorded audio
           const targetSampleRate = 8000;
           const decimationFactor = Math.max(1, Math.floor(sampleRate / targetSampleRate)); 
-          const maxSamples = Math.min(sampleRate * targetDuration, rawData.length);
           const points: { t: number; v: number }[] = [];
           
-          for (let i = 0; i < maxSamples; i += decimationFactor) {
-            // Scale raw audio (-1..+1) to a small voltage (e.g. ±50mV typical electret mic level)
-            points.push({ t: i / sampleRate, v: rawData[i] * 0.05 });
+          for (let i = 0; i < rawData.length; i += decimationFactor) {
+            // Raw audio is -1..+1, scale by gain to produce output voltage
+            // Default gain of 100 means ±1 raw → ±100 * 0.001V = ±0.1V base,
+            // but we use raw * 0.001 * gain so gain=100 → ±0.1V
+            // Actually simpler: raw electret mic is ~5-50mV peak. 
+            // We'll store the raw normalized values and apply gain in spice.ts
+            points.push({ t: i / sampleRate, v: rawData[i] });
           }
           
           // Stop all tracks to release mic
@@ -60,7 +63,8 @@ export function MicrophoneNode({ id, data }: any) {
           audioCtx.close();
 
           // Properly update node data through React Flow state
-          updatePwlData(points);
+          updateNodeData({ pwlData: points });
+          setHasData(true);
         };
         
         mediaRecorder.current.start();
@@ -80,7 +84,7 @@ export function MicrophoneNode({ id, data }: any) {
   };
 
   return (
-    <div className="bg-gray-100 border-2 border-gray-400 rounded-md p-2 w-20 flex flex-col items-center justify-center relative shadow-sm">
+    <div className="bg-gray-100 border-2 border-gray-400 rounded-md p-2 w-24 flex flex-col items-center justify-center relative shadow-sm">
       <button 
         onClick={toggleRecord}
         className={`w-10 h-10 rounded-full flex items-center justify-center text-white ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-gray-800'}`}
@@ -89,6 +93,7 @@ export function MicrophoneNode({ id, data }: any) {
       </button>
       <div className="text-[10px] mt-1 font-mono">Microphone</div>
       {hasData && <div className="text-[8px] text-green-600 font-bold">● REC</div>}
+      <div className="text-[8px] mt-0.5 font-mono text-gray-500">Gain: {gain}×</div>
       <Handle type="source" position={Position.Right} id="out" className="w-3 h-3 bg-blue-500" />
       <Handle type="source" position={Position.Bottom} id="gnd" className="w-3 h-3 bg-black" />
     </div>

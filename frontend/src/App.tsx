@@ -319,6 +319,13 @@ function PropertiesPanel({ selectedNode, setNodes, isSimulating, runSimulation }
           </div>
         </>
       )}
+      {selectedNode.type === 'microphone' && (
+        <div className="mb-3">
+          <label className="block text-xs font-medium text-gray-700 mb-1">Amplification (×)</label>
+          <input type="number" step="10" min="1" max="1000" value={(selectedNode.data.amplification as number) ?? 100} onChange={e => updateData('amplification', parseInt(e.target.value) || 100)} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
+          <div className="text-[10px] text-gray-400 mt-1">Output voltage = mic × 0.05V × gain</div>
+        </div>
+      )}
     </div>
   );
 }
