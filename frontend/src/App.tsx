@@ -417,6 +417,42 @@ function PropertiesPanel({ selectedNode, setNodes, isSimulating, runSimulation }
           </div>
         </>
       )}
+      {selectedNode.type === 'scope' && (
+        <>
+          <div className="mb-3">
+            <label className="block text-xs font-medium text-gray-700 mb-1">Y Axis Mode</label>
+            <select value={(selectedNode.data.yMode as string) || 'auto'} onChange={e => updateData('yMode', e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1">
+              <option value="auto">Auto (Fit to Data)</option>
+              <option value="fixed">Fixed Range</option>
+            </select>
+          </div>
+          {selectedNode.data.yMode === 'fixed' && (
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <div>
+                <label className="block text-[10px] text-gray-500 uppercase">Min (V)</label>
+                <input type="number" value={(selectedNode.data.yMin as number) ?? -15} onChange={e => updateData('yMin', parseFloat(e.target.value))} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
+              </div>
+              <div>
+                <label className="block text-[10px] text-gray-500 uppercase">Max (V)</label>
+                <input type="number" value={(selectedNode.data.yMax as number) ?? 15} onChange={e => updateData('yMax', parseFloat(e.target.value))} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
+              </div>
+            </div>
+          )}
+          <div className="mb-3">
+            <label className="block text-xs font-medium text-gray-700 mb-1">X Axis Mode</label>
+            <select value={(selectedNode.data.xMode as string) || 'auto'} onChange={e => updateData('xMode', e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1">
+              <option value="auto">Auto (Full Simulation)</option>
+              <option value="manual">Fixed Window</option>
+            </select>
+          </div>
+          {selectedNode.data.xMode === 'manual' && (
+            <div className="mb-3">
+              <label className="block text-[10px] text-gray-500 uppercase">Time Window (ms)</label>
+              <input type="number" min="1" value={(selectedNode.data.xMax as number) ?? 100} onChange={e => updateData('xMax', parseFloat(e.target.value))} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
