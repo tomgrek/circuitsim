@@ -136,8 +136,6 @@ build
 
 .DS_Store
 
-spice.js
-*.wasm
 temp
 
 test/python/output
