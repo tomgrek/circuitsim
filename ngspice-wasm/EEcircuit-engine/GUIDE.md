@@ -75,3 +75,26 @@ During the fix for the blink simulation, a critical hang was identified where th
 1. **Check the Bridge**: If the simulation hangs with high CPU but no output, verify that the `EM_ASYNC_JS` bridge is correctly resolving its promises.
 2. **Monitor the Command Loop**: Use detailed logging for `this.cmd`, `this.initialized`, and `this.hasStartedCommands` to track where the state machine is stuck.
 3. **Vite Cache**: When working with `file:` linked dependencies, Vite's cache (`node_modules/.vite`) is extremely aggressive. If code changes in the engine aren't showing up in the browser, delete the cache directory.
+
+## Custom Modifications vs. Open Source Baseline
+
+While this project is based on the open-source Ngspice and its initial WASM ports, we have implemented several critical enhancements to make it reliable for interactive web applications.
+
+### 1. Synchronized Async Bridge
+*   **Original**: Uses a basic `Asyncify` yield that can hang if the browser's event loop doesn't resume the WASM stack correctly.
+*   **Our Modification**: In `Docker/run.sh`, we inject an `await` into the `EM_ASYNC_JS` macro. This forces the C engine to wait for the JavaScript `handleThings` handler to resolve before attempting to resume the C stack, eliminating the infinite "C code called handleThings!" hang.
+
+### 2. State-Gated Event Handling
+*   **Original**: Typically treats every yield from C as a generic simulation step.
+*   **Our Modification**: Introduced the `hasStartedCommands` flag in `simulationLink.ts`. This allows the engine to distinguish between the **initialization phase** (sending netlists, sourcing files) and the **active simulation phase**. This prevents the engine from prematurely attempting to read result files (`out.raw`) before they are written.
+
+### 3. Real-Time Console Piping
+*   **Original**: Ngspice stdout is often discarded or stored in a difficult-to-access internal buffer.
+*   **Our Modification**: We redirected the WASM module's `print` and `printErr` functions directly to `console.log` and `console.error`. This provides developers with full visibility into the numerical engine's status directly in the browser dev tools.
+
+### 4. Interactive Simulation State Management
+*   **Original**: Logic usually resets the "Simulating" state as soon as the WASM module returns.
+*   **Our Modification**: In `App.tsx`, we decoupled the `isSimulating` state from the mathematical completion of the simulation. This allows the "Stop" button to remain active while components like the **Scope** and **LED** are looping through the animated results, providing a "real-time" user experience.
+
+### 5. Automated Regression Testing
+*   **Our Modification**: Added `test/test-async-hang-prevention.ts` which uses a 10-second timeout guard to automatically detect regressions in the asynchronous bridge logic, ensuring that future builds don't re-introduce simulation hangs.
