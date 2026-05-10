@@ -155,7 +155,7 @@ export function generateSpiceNetlist(nodes: Node[], edges: Edge[], simLength: nu
     else if (node.type === 'signalgen') {
       const freq = Number(node.data.frequency || 1);
       const amp = node.data.amplitude || 5;
-      const type = node.data.waveform === 'square' ? `PULSE(-${amp} ${amp} 0 1n 1n ${0.5/freq} ${1/freq})` : `SINE(0 ${amp} ${freq})`;
+      const type = node.data.waveform === 'square' ? `PULSE(-${amp} ${amp} 0 1m 1m ${0.5/freq} ${1/freq})` : `SINE(0 ${amp} ${freq})`;
       const n1 = getNet(node.id, 'out');
       const n2 = getNet(node.id, 'gnd');
       netlist += `V_${node.id} ${n1} ${n2} ${type}\n`;
@@ -290,11 +290,11 @@ S_DIS 7 1 8 state SMOD_DIS
   // Audio circuits need much finer time steps for proper frequency resolution
   if (hasAudio) {
     // 0.05ms step → 20kHz Nyquist → captures full audio bandwidth
-    netlist += `.tran 0.05m ${simLength}s 0 0.05m uic\n`;
+    netlist += `.tran 0.05m ${simLength}s 0 0.05m\n`;
   } else if (simResolution === 'high') {
-    netlist += `.tran 1m ${simLength}s 0 0.1m uic\n`;
+    netlist += `.tran 1m ${simLength}s 0 0.1m\n`;
   } else {
-    netlist += `.tran 1m ${simLength}s uic\n`;
+    netlist += `.tran 1m ${simLength}s\n`;
   }
   netlist += `.end\n`;
 

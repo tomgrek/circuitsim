@@ -96,7 +96,9 @@ export function MicrophoneNode({ id, data }: any) {
       {hasData && <div className="text-[8px] text-green-600 font-bold">● REC</div>}
       <div className="text-[8px] mt-0.5 font-mono text-gray-500">Gain: {gain}×</div>
       <Handle type="source" position={Position.Right} id="out" className="w-3 h-3 bg-blue-500" />
+      <Handle type="target" position={Position.Right} id="out" className="w-3 h-3 bg-blue-500" />
       <Handle type="source" position={Position.Bottom} id="gnd" className="w-3 h-3 bg-black" />
+      <Handle type="target" position={Position.Bottom} id="gnd" className="w-3 h-3 bg-black" />
     </div>
   );
 }

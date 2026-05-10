@@ -90,12 +90,14 @@ export function SpeakerNode({ data }: any) {
   return (
     <div className="bg-gray-100 border-2 border-gray-400 rounded-md p-2 w-16 h-16 flex items-center justify-center relative shadow-sm">
       <Handle type="target" position={Position.Left} id="in" className="w-3 h-3 bg-blue-500" />
+      <Handle type="source" position={Position.Left} id="in" className="w-3 h-3 bg-blue-500" />
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
         <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
         <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
       </svg>
       <Handle type="source" position={Position.Bottom} id="gnd" className="w-3 h-3 bg-black" />
+      <Handle type="target" position={Position.Bottom} id="gnd" className="w-3 h-3 bg-black" />
     </div>
   );
 }

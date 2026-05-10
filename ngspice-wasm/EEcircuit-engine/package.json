@@ -1,0 +1,47 @@
+{
+  "name": "eecircuit-engine",
+  "version": "1.7.0",
+  "description": "EEcircuit's simulation engine",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eelab-dev/EEcircuit-engine"
+  },
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/eecircuit-engine.umd.cjs",
+  "module": "./dist/eecircuit-engine.mjs",
+  "exports": {
+    ".": {
+      "types": "./dist/main.d.ts",
+      "import": "./dist/eecircuit-engine.mjs",
+      "require": "./dist/eecircuit-engine.cjs"
+    }
+  },
+  "scripts": {
+    "dev": "vite",
+    "check": "eslint . --ext .ts,.mts,.cts",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "npx tsx test/run-all.ts",
+    "test:source": "npx tsx test/test.ts",
+    "test:hang": "npx tsx test/test-async-hang-prevention.ts",
+    "test:package": "npx tsx test/test-package.ts",
+    "test:browser": "npx playwright test test/test-browser-regression.spec.mts",
+    "test:browser:all": "npx playwright test test/test-browser-regression.spec.mts"
+  },
+  "author": "Danial Chitnis",
+  "license": "MIT",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^25.3.0",
+    "eslint": "^10.1.0",
+    "globals": "^17.3.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.57.0",
+    "vite": "^8.0.2",
+    "vite-plugin-dts": "^4.5.4"
+  }
+}

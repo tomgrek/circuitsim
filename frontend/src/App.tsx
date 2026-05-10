@@ -568,20 +568,30 @@ export default function App() {
       const { netlist, portToNet } = generateSpiceNetlist(nodes, edges, simLength, simResolution);
       console.log("Simulating netlist:\n", netlist);
       
+      console.log("Starting simulation...");
       const result = await engineInstance.simulate(netlist);
-      console.log("Result:", result);
+      console.log("Simulation result received:", result);
 
       const voltageGraphs = result?.simulationResultCircuitJson?.filter(
         (r: any) => r.type === "simulation_transient_voltage_graph"
       ) || [];
+
+      const findGraph = (netName: string) => {
+        if (!netName) return null;
+        const search = netName.toLowerCase();
+        return voltageGraphs.find((g: any) => {
+          const name = g.name.toLowerCase();
+          return name === search || name === `v(${search})`;
+        });
+      };
 
       setNodes(nds => nds.map(n => {
         if (n.type === 'led') {
           const anodeNet = portToNet[`${n.id}-anode`];
           const intNet = `int_led_${n.id}`;
           
-          const anodeGraph = voltageGraphs.find((g: any) => g.name.toLowerCase() === anodeNet?.toLowerCase());
-          const intGraph = voltageGraphs.find((g: any) => g.name.toLowerCase() === intNet.toLowerCase());
+          const anodeGraph = findGraph(anodeNet);
+          const intGraph = findGraph(intNet);
           
           let brightness = 0;
           let isExploded = !!n.data.isExploded;
@@ -615,14 +625,16 @@ export default function App() {
         if (n.type === 'multimeter') {
           const posNet = portToNet[`${n.id}-pos`];
           const negNet = portToNet[`${n.id}-neg`];
-          const posGraph = voltageGraphs.find((g: any) => g.name.toLowerCase() === posNet?.toLowerCase());
-          const negGraph = voltageGraphs.find((g: any) => g.name.toLowerCase() === negNet?.toLowerCase());
+          const posGraph = findGraph(posNet);
+          const negGraph = findGraph(negNet);
           
           let voltage = 0;
           if (posGraph || negGraph) {
+            const posLevels = posGraph?.voltage_levels || [];
+            const negLevels = negGraph?.voltage_levels || [];
             // Get the last simulated point
-            const vPos = posGraph ? posGraph.voltage_levels[posGraph.voltage_levels.length - 1] : 0;
-            const vNeg = negGraph ? negGraph.voltage_levels[negGraph.voltage_levels.length - 1] : 0;
+            const vPos = posLevels.length > 0 ? posLevels[posLevels.length - 1] : 0;
+            const vNeg = negLevels.length > 0 ? negLevels[negLevels.length - 1] : 0;
             voltage = vPos - vNeg;
           }
           return { ...n, data: { ...n.data, voltage } };
@@ -633,9 +645,9 @@ export default function App() {
           const ch2Net = portToNet[`${n.id}-ch2`];
           const gndNet = portToNet[`${n.id}-gnd`]; 
           
-          const ch1Graph = voltageGraphs.find((g: any) => g.name.toLowerCase() === ch1Net?.toLowerCase());
-          const ch2Graph = voltageGraphs.find((g: any) => g.name.toLowerCase() === ch2Net?.toLowerCase());
-          const gndGraph = voltageGraphs.find((g: any) => g.name.toLowerCase() === gndNet?.toLowerCase());
+          const ch1Graph = findGraph(ch1Net);
+          const ch2Graph = findGraph(ch2Net);
+          const gndGraph = findGraph(gndNet);
           
           let voltageData1: {t: number, v: number}[] = [];
           let voltageData2: {t: number, v: number}[] = [];
@@ -661,8 +673,8 @@ export default function App() {
           const inNet = portToNet[`${n.id}-in`];
           const gndNet = portToNet[`${n.id}-gnd`];
           
-          const inGraph = voltageGraphs.find((g: any) => g.name.toLowerCase() === inNet?.toLowerCase());
-          const gndGraph = voltageGraphs.find((g: any) => g.name.toLowerCase() === gndNet?.toLowerCase());
+          const inGraph = findGraph(inNet);
+          const gndGraph = findGraph(gndNet);
           
           let voltageData: {t: number, v: number}[] = [];
           if (inGraph) {

@@ -1,7 +1,8 @@
-import { createNgspiceSpiceEngine } from '@tscircuit/ngspice-spice-engine';
+// import { createNgspiceSpiceEngine } from '@tscircuit/ngspice-spice-engine';
+import { Simulation } from 'eecircuit-engine';
 
 async function main() {
-  const engine = await createNgspiceSpiceEngine();
+  const engine = new Simulation();
   const netlist = `
 V_sg1 N0 0 PULSE(-5 5 0 1n 1n 0.5 1)
 R_r1 N0 N1 330
@@ -13,7 +14,8 @@ D_led1 int_led 0 LED_MODEL
 .end
 `;
   console.log("Simulating...");
-  const result = await engine.simulate(netlist);
+  engine.setNetList(netlist);
+  const result = await engine.runSim();
   console.log(result);
 }
 

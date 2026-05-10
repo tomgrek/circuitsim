@@ -63,6 +63,7 @@ export function LEDNode({ data }: any) {
   return (
     <div className="bg-gray-100 border-2 border-gray-400 rounded-md p-2 w-16 h-16 flex flex-col items-center justify-center relative shadow-sm">
       <Handle type="target" position={Position.Top} id="anode" className="w-3 h-3 bg-red-500" />
+      <Handle type="source" position={Position.Top} id="anode" className="w-3 h-3 bg-red-500" />
       
       {isExploded ? (
         <div className="w-8 h-8 relative flex items-center justify-center">
@@ -83,6 +84,8 @@ export function LEDNode({ data }: any) {
       <div ref={textRef} className="text-[9px] font-mono font-bold text-gray-700 bg-gray-200 px-1 rounded absolute bottom-1 right-1"></div>
 
       <Handle type="source" position={Position.Bottom} id="cathode" className="w-3 h-3 bg-black" />
+      <Handle type="target" position={Position.Bottom} id="cathode" className="w-3 h-3 bg-black" />
+
     </div>
   );
 }

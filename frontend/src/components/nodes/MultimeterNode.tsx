@@ -12,7 +12,9 @@ export function MultimeterNode({ data }: any) {
         <div className="text-gray-400 font-bold text-xs">-</div>
       </div>
       <Handle type="target" position={Position.Bottom} id="pos" className="w-3 h-3 bg-red-500" style={{ left: '30%' }} />
+      <Handle type="source" position={Position.Bottom} id="pos" className="w-3 h-3 bg-red-500" style={{ left: '30%' }} />
       <Handle type="target" position={Position.Bottom} id="neg" className="w-3 h-3 bg-black" style={{ left: '70%' }} />
+      <Handle type="source" position={Position.Bottom} id="neg" className="w-3 h-3 bg-black" style={{ left: '70%' }} />
     </div>
   );
 }

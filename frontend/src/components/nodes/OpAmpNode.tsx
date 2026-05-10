@@ -14,15 +14,20 @@ export function OpAmpNode() {
       {/* Handles */}
       {/* Inverting input */}
       <Handle type="target" position={Position.Left} id="in_inv" className="w-3 h-3 bg-blue-500 !top-[30%]" />
+      <Handle type="source" position={Position.Left} id="in_inv" className="w-3 h-3 bg-blue-500 !top-[30%]" />
       {/* Non-inverting input */}
       <Handle type="target" position={Position.Left} id="in_non" className="w-3 h-3 bg-blue-500 !top-[70%]" />
+      <Handle type="source" position={Position.Left} id="in_non" className="w-3 h-3 bg-blue-500 !top-[70%]" />
       
       {/* Output */}
       <Handle type="source" position={Position.Right} id="out" className="w-3 h-3 bg-blue-500 !top-[50%]" />
+      <Handle type="target" position={Position.Right} id="out" className="w-3 h-3 bg-blue-500 !top-[50%]" />
       
       {/* Power pins (top/bottom) */}
       <Handle type="target" position={Position.Top} id="vcc" className="w-3 h-3 bg-red-500 !left-[50%]" />
+      <Handle type="source" position={Position.Top} id="vcc" className="w-3 h-3 bg-red-500 !left-[50%]" />
       <Handle type="target" position={Position.Bottom} id="vee" className="w-3 h-3 bg-black !left-[50%]" />
+      <Handle type="source" position={Position.Bottom} id="vee" className="w-3 h-3 bg-black !left-[50%]" />
     </div>
   );
 }
