@@ -345,6 +345,60 @@ export const mcuPassThrough: CircuitPreset = {
   ]
 };
 
+export const mcuCleanAudioSampler: CircuitPreset = {
+  name: 'MCU Clean Audio Sampler',
+  nodes: [
+    // Signal generation (2V amplitude so it swings 0.5V to 4.5V when biased at 2.5V)
+    { id: 'sg1', type: 'signalgen', position: { x: 50, y: 300 }, data: { label: '440Hz Sine', waveform: 'sine', frequency: 440, amplitude: 2 } },
+    { id: 'cin', type: 'capacitor', position: { x: 200, y: 300 }, data: { label: '10µF AC Couple', capacitance: 10e-6 } },
+    
+    // DC Bias network
+    { id: 'v1', type: 'voltage', position: { x: 350, y: 50 }, data: { label: '5V', voltage: 5 } },
+    { id: 'r1', type: 'resistor', position: { x: 350, y: 150 }, data: { label: '10k', resistance: 10000 } },
+    { id: 'r2', type: 'resistor', position: { x: 350, y: 400 }, data: { label: '10k', resistance: 10000 } },
+    
+    // Microcontroller
+    { id: 'mcu1', type: 'mcu', position: { x: 550, y: 250 }, data: { label: 'Microcontroller', code: "pinMode('A0', 'INPUT');\npinMode('A1', 'OUTPUT');\n\n// 10kHz sampling for high fidelity\nwhile(true) {\n  const val = analogRead('A0');\n  analogWrite('A1', val / 4);\n  sleep(0.1);\n}" } },
+    
+    // Reconstruction Low-Pass Filter
+    { id: 'rout', type: 'resistor', position: { x: 800, y: 250 }, data: { label: '1k', resistance: 1000 } },
+    { id: 'cout', type: 'capacitor', position: { x: 950, y: 400 }, data: { label: '0.1µF LPF', capacitance: 0.1e-6 } },
+    
+    // Output
+    { id: 'spk1', type: 'speaker', position: { x: 1100, y: 250 }, data: { label: 'Speaker' } },
+    
+    // Grounds
+    { id: 'g1', type: 'ground', position: { x: 50, y: 500 }, data: { label: 'GND' } },
+    { id: 'g2', type: 'ground', position: { x: 350, y: 500 }, data: { label: 'GND' } },
+    { id: 'g3', type: 'ground', position: { x: 950, y: 500 }, data: { label: 'GND' } },
+  ],
+  edges: [
+    // Signal source
+    { id: 'e-sg-cin', source: 'sg1', target: 'cin', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-sg-g1', source: 'sg1', target: 'g1', sourceHandle: 'gnd', targetHandle: 'in', type: 'smoothstep' },
+    
+    // Bias divider & AC coupling mix
+    { id: 'e-v1-r1', source: 'v1', target: 'r1', sourceHandle: 'pos', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-v1-g2', source: 'v1', target: 'g2', sourceHandle: 'neg', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-r1-mix', source: 'r1', target: 'r2', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-r2-g2', source: 'r2', target: 'g2', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-cin-mix', source: 'cin', target: 'r2', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
+    
+    // MCU input
+    { id: 'e-mix-mcu', source: 'r2', target: 'mcu1', sourceHandle: 'in', targetHandle: 'A0', type: 'smoothstep' },
+    { id: 'e-mcu-g2', source: 'mcu1', target: 'g2', sourceHandle: 'GND', targetHandle: 'in', type: 'smoothstep' },
+    
+    // MCU output to Filter
+    { id: 'e-mcu-rout', source: 'mcu1', target: 'rout', sourceHandle: 'A1', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-rout-cout', source: 'rout', target: 'cout', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-cout-g3', source: 'cout', target: 'g3', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
+    
+    // Filter to Speaker
+    { id: 'e-filt-spk', source: 'rout', target: 'spk1', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-spk-g3', source: 'spk1', target: 'g3', sourceHandle: 'gnd', targetHandle: 'in', type: 'smoothstep' },
+  ]
+};
+
 export const presets: Record<string, CircuitPreset> = {
   basicBlink,
   timer555Blink,
@@ -358,5 +412,6 @@ export const presets: Record<string, CircuitPreset> = {
   mcuSpeaker,
   mcuAnalogOut,
   mcuAnalogIn,
-  mcuPassThrough
+  mcuPassThrough,
+  mcuCleanAudioSampler
 };
