@@ -40,6 +40,7 @@ import { generateSpiceNetlist } from './utils/spice';
 import { Play, Square, Trash2 } from 'lucide-react';
 import { createNgspiceSpiceEngine } from '@tscircuit/ngspice-spice-engine';
 import { presets } from './utils/presets';
+import { Logo } from './components/Logo';
 
 const nodeTypes = {
   resistor: ResistorNode,
@@ -730,9 +731,15 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen w-full bg-gray-50 text-gray-900 font-sans">
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-10">
+      <div className="bg-gradient-to-b from-slate-50 to-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-10">
         <div className="flex items-center gap-6">
-          <h1 className="text-xl font-bold text-indigo-600 tracking-tight">CircuitSim</h1>
+          <a 
+            href="https://circuit.expt.in" 
+            className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+          >
+            <Logo />
+            <h1 className="text-2xl font-black text-indigo-600 tracking-tight">Circuit Expt</h1>
+          </a>
           <div className="h-6 w-px bg-gray-300"></div>
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-gray-600">Circuit:</span>
