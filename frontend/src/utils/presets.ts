@@ -270,6 +270,47 @@ export const bridgeRectifier: CircuitPreset = {
   ]
 };
 
+export const mcuBlink: CircuitPreset = {
+  name: 'MCU Blink',
+  nodes: [
+    { id: 'mcu1', type: 'mcu', position: { x: 100, y: 150 }, data: { label: 'Microcontroller', code: "pinMode('D0', 'OUTPUT');\n\nwhile(true) {\n  digitalWrite('D0', 1);\n  sleep(500);\n  digitalWrite('D0', 0);\n  sleep(500);\n}" } },
+    { id: 'r1', type: 'resistor', position: { x: 400, y: 180 }, data: { label: '330Ω', resistance: 330 } },
+    { id: 'led1', type: 'led', position: { x: 600, y: 180 }, data: { label: 'LED', color: 'blue', v_drop: 2.0, max_current: 20 } },
+    { id: 'g1', type: 'ground', position: { x: 600, y: 350 }, data: { label: 'GND' } },
+  ],
+  edges: [
+    { id: 'e-mcu-r1', source: 'mcu1', target: 'r1', sourceHandle: 'D0', targetHandle: 'in', type: 'smoothstep', style: { strokeWidth: 2, stroke: '#555' } },
+    { id: 'e-r1-led1', source: 'r1', target: 'led1', sourceHandle: 'out', targetHandle: 'anode', type: 'smoothstep', style: { strokeWidth: 2, stroke: '#555' } },
+    { id: 'e-led1-g1', source: 'led1', target: 'g1', sourceHandle: 'cathode', targetHandle: 'in', type: 'smoothstep', style: { strokeWidth: 2, stroke: '#555' } },
+  ]
+};
+
+export const mcuSpeaker: CircuitPreset = {
+  name: 'MCU Speaker Tone',
+  nodes: [
+    { id: 'mcu1', type: 'mcu', position: { x: 100, y: 150 }, data: { label: 'Microcontroller', code: "pinMode('D1', 'OUTPUT');\n\n// Generate 500Hz square wave\nconst halfPeriod = 1;\nwhile(true) {\n  digitalWrite('D1', 1);\n  sleep(halfPeriod);\n  digitalWrite('D1', 0);\n  sleep(halfPeriod);\n}" } },
+    { id: 'spk1', type: 'speaker', position: { x: 400, y: 150 }, data: { label: 'Speaker' } },
+    { id: 'g1', type: 'ground', position: { x: 400, y: 300 }, data: { label: 'GND' } },
+  ],
+  edges: [
+    { id: 'e-mcu-spk1', source: 'mcu1', target: 'spk1', sourceHandle: 'D1', targetHandle: 'in', type: 'smoothstep', style: { strokeWidth: 2, stroke: '#555' } },
+    { id: 'e-spk1-g1', source: 'spk1', target: 'g1', sourceHandle: 'gnd', targetHandle: 'in', type: 'smoothstep', style: { strokeWidth: 2, stroke: '#555' } },
+  ]
+};
+
+export const mcuAnalogOut: CircuitPreset = {
+  name: 'MCU Sine Wave (A0)',
+  nodes: [
+    { id: 'mcu1', type: 'mcu', position: { x: 100, y: 150 }, data: { label: 'Microcontroller', code: "pinMode('A0', 'OUTPUT');\n\n// Generate ~5Hz sine wave\nconst freq = 5;\nconst points = 20;\nconst dt = 1000 / (freq * points);\n\nwhile(true) {\n  for(let i=0; i<points; i++) {\n    const rad = (i / points) * 2 * Math.PI;\n    const val = (Math.sin(rad) + 1) * 127;\n    analogWrite('A0', val);\n    \n    // Log first period\n    if (millis() < 1000 / freq) {\n      Serial.println(`t=${millis().toFixed(0)} val=${val.toFixed(0)}`);\n    }\n    sleep(dt);\n  }\n}" } },
+    { id: 'scope1', type: 'scope', position: { x: 400, y: 150 }, data: { label: 'A0 Output' } },
+    { id: 'g1', type: 'ground', position: { x: 400, y: 300 }, data: { label: 'GND' } },
+  ],
+  edges: [
+    { id: 'e-mcu-scope', source: 'mcu1', target: 'scope1', sourceHandle: 'A0', targetHandle: 'ch1', type: 'smoothstep', style: { strokeWidth: 2, stroke: '#555' } },
+    { id: 'e-scope-g1', source: 'scope1', target: 'g1', sourceHandle: 'gnd', targetHandle: 'in', type: 'smoothstep', style: { strokeWidth: 2, stroke: '#555' } },
+  ]
+};
+
 export const presets: Record<string, CircuitPreset> = {
   basicBlink,
   timer555Blink,
@@ -278,5 +319,8 @@ export const presets: Record<string, CircuitPreset> = {
   bjtAmp,
   classBamp,
   classABamp,
-  bridgeRectifier
+  bridgeRectifier,
+  mcuBlink,
+  mcuSpeaker,
+  mcuAnalogOut
 };

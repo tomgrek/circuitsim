@@ -1,4 +1,5 @@
 import { type Node, type Edge } from '@xyflow/react';
+import { executeMcuCode, type PWLPoint } from './mcu';
 
 /** Strip Unicode symbols from component labels to produce valid SPICE values.
  *  e.g. '47kΩ' → '47k', '10µF' → '10uF' */
@@ -10,8 +11,9 @@ function sanitizeSpiceValue(val: string): string {
     .trim();
 }
 
-export function generateSpiceNetlist(nodes: Node[], edges: Edge[], simLength: number = 1.0, simResolution: 'normal' | 'high' = 'normal'): { netlist: string; portToNet: Record<string, string> } {
+export function generateSpiceNetlist(nodes: Node[], edges: Edge[], simLength: number = 1.0, simResolution: 'normal' | 'high' = 'normal', mcuWaveforms: Record<string, Record<string, PWLPoint[]>> = {}): { netlist: string; portToNet: Record<string, string>; mcuLogs: Record<string, string[]> } {
   let netlist = "Circuit Simulation\n";
+  const mcuLogs: Record<string, string[]> = {};
   
   // 1. Map connections to nets
   // We'll use a Union-Find or a simple adjacency list to group connected ports into 'nets'.
@@ -235,6 +237,44 @@ export function generateSpiceNetlist(nodes: Node[], edges: Edge[], simLength: nu
       netlist += `M_${node.id} ${nd} ${ng} ${ns} ${ns} PMOS_MODEL_${node.id}\n`;
       netlist += `.model PMOS_MODEL_${node.id} PMOS(LEVEL=1 VTO=${vto} KP=${kp} GAMMA=0.5 PHI=0.6 LAMBDA=0.01)\n`;
     }
+    else if (node.type === 'mcu') {
+      const code = (node.data.code as string) || '';
+      const inputWaveforms = mcuWaveforms[node.id] || {};
+      const { pwlOutputs, pinModes, logs } = executeMcuCode(code, simLength, inputWaveforms);
+      mcuLogs[node.id] = logs;
+
+      const pins = ['D0', 'D1', 'D2', 'D3', 'A0', 'A1'];
+      for (const pin of pins) {
+        const net = getNet(node.id, pin);
+        if (pinModes[pin] === 'OUTPUT' && pwlOutputs[pin] && pwlOutputs[pin].length > 0) {
+          // Output pin driving voltage
+          const pwlData = pwlOutputs[pin];
+          const POINTS_PER_LINE = 8;
+          const intNet = `int_mcu_${node.id}_${pin}`;
+          let pwlLines = `V_${node.id}_${pin} ${intNet} 0 PWL(\n`;
+          for (let i = 0; i < pwlData.length; i++) {
+            const p = pwlData[i];
+            if (i % POINTS_PER_LINE === 0) pwlLines += '+ ';
+            pwlLines += `${(p.t / 1000).toExponential(6)} ${p.v.toExponential(6)} `;
+            if ((i + 1) % POINTS_PER_LINE === 0 || i === pwlData.length - 1) pwlLines += '\n';
+          }
+          pwlLines += '+ )\n';
+          // Add 20 ohm series resistor for output (typical for Arduino GPIO)
+          netlist += pwlLines;
+          netlist += `R_${node.id}_${pin}_out ${intNet} ${net} 20\n`;
+        } else {
+          // Input pin (or unconfigured), 100M resistor to ground to prevent floating
+          netlist += `R_${node.id}_${pin} ${net} 0 100MEG\n`;
+        }
+      }
+      // VCC and GND pins
+      const vccNet = getNet(node.id, '5V');
+      const gndNet = getNet(node.id, 'GND');
+      const int5VNet = `int_mcu_${node.id}_5V`;
+      netlist += `V_${node.id}_5V ${int5VNet} 0 DC 5\n`;
+      netlist += `R_${node.id}_5V_res ${int5VNet} ${vccNet} 1\n`; // 1 ohm to avoid singular matrix with other 5V sources
+      netlist += `R_${node.id}_GND ${gndNet} 0 1m\n`;
+    }
   });
   
   if (hasOpAmp) {
@@ -298,5 +338,5 @@ S_DIS 7 1 8 state SMOD_DIS
   }
   netlist += `.end\n`;
 
-  return { netlist, portToNet };
+  return { netlist, portToNet, mcuLogs };
 }

@@ -1,0 +1,6 @@
+PWL Test
+V1 1 0 PWL(0 0 0 5 0.499999 5 0.5 0 1.0 0)
+R1 1 0 1k
+.tran 1m 1s
+.save all
+.end

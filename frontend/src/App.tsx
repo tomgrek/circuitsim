@@ -36,6 +36,7 @@ import { PmosNode } from './components/nodes/PmosNode';
 import { DiodeNode } from './components/nodes/DiodeNode';
 import { ZenerDiodeNode } from './components/nodes/ZenerDiodeNode';
 import { ACVoltageNode } from './components/nodes/ACVoltageNode';
+import { MicrocontrollerNode } from './components/nodes/MicrocontrollerNode';
 import { generateSpiceNetlist } from './utils/spice';
 import { Play, Square, Trash2 } from 'lucide-react';
 import { createNgspiceSpiceEngine } from '@tscircuit/ngspice-spice-engine';
@@ -62,6 +63,7 @@ const nodeTypes = {
   diode: DiodeNode,
   zener: ZenerDiodeNode,
   acvoltage: ACVoltageNode,
+  mcu: MicrocontrollerNode,
 };
 
 let engineInstance: any = null;
@@ -183,6 +185,16 @@ function Sidebar() {
           <span className="text-white text-[10px] font-bold">NE555</span>
         </div>
         <span className="text-sm font-medium">555 Timer</span>
+      </div>
+
+      <div 
+        className="border border-gray-300 rounded p-3 cursor-grab hover:bg-gray-50 flex flex-col items-center gap-2"
+        onDragStart={(e) => onDragStart(e, 'mcu')} draggable
+      >
+        <div className="bg-gray-800 border-2 border-gray-900 rounded w-16 h-10 flex items-center justify-center">
+          <span className="text-white text-[10px] font-bold">MCU</span>
+        </div>
+        <span className="text-sm font-medium">Microcontroller</span>
       </div>
 
       <div 
@@ -367,6 +379,27 @@ function PropertiesPanel({ selectedNode, setNodes, isSimulating, runSimulation }
             <label className="block text-xs font-medium text-gray-700 mb-1">Amplitude (V)</label>
             <input type="number" value={(selectedNode.data.amplitude as number) || 5} onChange={e => updateData('amplitude', parseInt(e.target.value))} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
           </div>
+        </>
+      )}
+      {selectedNode.type === 'mcu' && (
+        <>
+          <div className="mb-3">
+            <label className="block text-xs font-medium text-gray-700 mb-1">Code (JS)</label>
+            <textarea 
+              value={(selectedNode.data.code as string) ?? "pinMode('D0', 'OUTPUT');\nwhile(true) {\n  digitalWrite('D0', 1);\n  sleep(500);\n  digitalWrite('D0', 0);\n  sleep(500);\n}"} 
+              onChange={e => updateData('code', e.target.value)} 
+              className="w-full text-xs font-mono border border-gray-300 rounded px-2 py-1 h-48 whitespace-pre bg-gray-50" 
+              spellCheck="false"
+            />
+          </div>
+          {selectedNode.data.logs && (selectedNode.data.logs as string[]).length > 0 && (
+            <div className="mb-3 flex flex-col">
+              <label className="block text-xs font-medium text-gray-700 mb-1 uppercase tracking-wider">Serial Monitor</label>
+              <div className="bg-gray-900 text-green-400 font-mono text-[10px] p-2 h-32 overflow-y-auto rounded shadow-inner whitespace-pre-wrap">
+                {(selectedNode.data.logs as string[]).map((log, i) => <div key={i}>{log}</div>)}
+              </div>
+            </div>
+          )}
         </>
       )}
       {(selectedNode.type === 'npn' || selectedNode.type === 'pnp') && (
@@ -566,16 +599,60 @@ export default function App() {
         engineInstance = await createNgspiceSpiceEngine();
       }
       
-      const { netlist, portToNet } = generateSpiceNetlist(nodes, edges, simLength, simResolution);
-      console.log("Simulating netlist:\n", netlist);
+      let { netlist, portToNet, mcuLogs } = generateSpiceNetlist(nodes, edges, simLength, simResolution);
+      
+      const mcuNodes = nodes.filter(n => n.type === 'mcu');
+      const needsTwoPass = mcuNodes.some(n => {
+        const code = (n.data.code as string) || "pinMode('D0', 'OUTPUT');\nwhile(true) {\n  digitalWrite('D0', 1);\n  sleep(500);\n  digitalWrite('D0', 0);\n  sleep(500);\n}";
+        return code.includes('Read');
+      });
+
+      console.log("Simulating netlist (Pass 1):\n", netlist);
       
       console.log("Starting simulation...");
-      const result = await engineInstance.simulate(netlist);
+      let result = await engineInstance.simulate(netlist);
       console.log("Simulation result received:", result);
 
-      const voltageGraphs = result?.simulationResultCircuitJson?.filter(
+      let voltageGraphs = result?.simulationResultCircuitJson?.filter(
         (r: any) => r.type === "simulation_transient_voltage_graph"
       ) || [];
+
+      if (needsTwoPass) {
+         console.log("MCU needs inputs, running Pass 2...");
+         const findGraphPass1 = (netName: string) => {
+           if (!netName) return null;
+           const search = netName.toLowerCase();
+           return voltageGraphs.find((g: any) => {
+             const name = g.name.toLowerCase();
+             return name === search || name === `v(${search})`;
+           });
+         };
+         
+         const mcuWaveforms: any = {};
+         for (const mcu of mcuNodes) {
+           mcuWaveforms[mcu.id] = {};
+           for (const pin of ['D0', 'D1', 'D2', 'D3', 'A0', 'A1']) {
+             const net = portToNet[`${mcu.id}-${pin}`];
+             const graph = findGraphPass1(net);
+             if (graph) {
+               mcuWaveforms[mcu.id][pin] = graph.timestamps_ms.map((t: number, i: number) => ({
+                 t, v: graph.voltage_levels[i]
+               }));
+             }
+           }
+         }
+         
+         const pass2 = generateSpiceNetlist(nodes, edges, simLength, simResolution, mcuWaveforms);
+         netlist = pass2.netlist;
+         portToNet = pass2.portToNet;
+         mcuLogs = pass2.mcuLogs;
+         console.log("Simulating netlist (Pass 2):\n", netlist);
+         result = await engineInstance.simulate(netlist);
+         
+         voltageGraphs = result?.simulationResultCircuitJson?.filter(
+           (r: any) => r.type === "simulation_transient_voltage_graph"
+         ) || [];
+      }
 
       const findGraph = (netName: string) => {
         if (!netName) return null;
@@ -691,6 +768,10 @@ export default function App() {
           }
         }
 
+        if (n.type === 'mcu') {
+          return { ...n, data: { ...n.data, logs: mcuLogs[n.id] } };
+        }
+        
         return n;
       }));
       
