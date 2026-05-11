@@ -326,6 +326,25 @@ export const mcuAnalogIn: CircuitPreset = {
   ]
 };
 
+export const mcuPassThrough: CircuitPreset = {
+  name: 'MCU Audio Sampler',
+  nodes: [
+    { id: 'sg1', type: 'signalgen', position: { x: 50, y: 180 }, data: { label: '440Hz Sine', waveform: 'sine', frequency: 440, amplitude: 5 } },
+    { id: 'mcu1', type: 'mcu', position: { x: 300, y: 150 }, data: { label: 'Microcontroller', code: "pinMode('A0', 'INPUT');\npinMode('A1', 'OUTPUT');\n\n// Pass-through sampling at 1kHz (1ms)\nwhile(true) {\n  const val = analogRead('A0');\n  // Convert 10-bit ADC to 8-bit DAC\n  analogWrite('A1', val / 4);\n  sleep(1);\n}" } },
+    { id: 'spk1', type: 'speaker', position: { x: 600, y: 180 }, data: { label: 'Speaker' } },
+    { id: 'g1', type: 'ground', position: { x: 50, y: 300 }, data: { label: 'GND' } },
+    { id: 'g2', type: 'ground', position: { x: 300, y: 350 }, data: { label: 'GND' } },
+    { id: 'g3', type: 'ground', position: { x: 600, y: 300 }, data: { label: 'GND' } },
+  ],
+  edges: [
+    { id: 'e-sg-mcu', source: 'sg1', target: 'mcu1', sourceHandle: 'out', targetHandle: 'A0', type: 'smoothstep', style: { strokeWidth: 2, stroke: '#555' } },
+    { id: 'e-sg-gnd', source: 'sg1', target: 'g1', sourceHandle: 'gnd', targetHandle: 'in', type: 'smoothstep', style: { strokeWidth: 2, stroke: '#555' } },
+    { id: 'e-mcu-spk', source: 'mcu1', target: 'spk1', sourceHandle: 'A1', targetHandle: 'in', type: 'smoothstep', style: { strokeWidth: 2, stroke: '#555' } },
+    { id: 'e-spk-gnd', source: 'spk1', target: 'g3', sourceHandle: 'gnd', targetHandle: 'in', type: 'smoothstep', style: { strokeWidth: 2, stroke: '#555' } },
+    { id: 'e-mcu-gnd', source: 'mcu1', target: 'g2', sourceHandle: 'GND', targetHandle: 'in', type: 'smoothstep', style: { strokeWidth: 2, stroke: '#555' } },
+  ]
+};
+
 export const presets: Record<string, CircuitPreset> = {
   basicBlink,
   timer555Blink,
@@ -338,5 +357,6 @@ export const presets: Record<string, CircuitPreset> = {
   mcuBlink,
   mcuSpeaker,
   mcuAnalogOut,
-  mcuAnalogIn
+  mcuAnalogIn,
+  mcuPassThrough
 };
