@@ -311,6 +311,21 @@ export const mcuAnalogOut: CircuitPreset = {
   ]
 };
 
+export const mcuAnalogIn: CircuitPreset = {
+  name: 'MCU Analog Read (A0)',
+  nodes: [
+    { id: 'vac1', type: 'acvoltage', position: { x: 50, y: 180 }, data: { label: '5V 40Hz', amplitude: 5, frequency: 40 } },
+    { id: 'mcu1', type: 'mcu', position: { x: 300, y: 150 }, data: { label: 'Microcontroller', code: "pinMode('A0', 'INPUT');\n\n// Read A0 every 5ms and log it\nwhile(true) {\n  const val = analogRead('A0');\n  Serial.println(`t=${millis()}ms -> A0: ${val}`);\n  sleep(5);\n}" } },
+    { id: 'g1', type: 'ground', position: { x: 50, y: 300 }, data: { label: 'GND' } },
+    { id: 'g2', type: 'ground', position: { x: 300, y: 350 }, data: { label: 'GND' } },
+  ],
+  edges: [
+    { id: 'e-vac-mcu', source: 'vac1', target: 'mcu1', sourceHandle: 'pos', targetHandle: 'A0', type: 'smoothstep', style: { strokeWidth: 2, stroke: '#555' } },
+    { id: 'e-vac-gnd', source: 'vac1', target: 'g1', sourceHandle: 'neg', targetHandle: 'in', type: 'smoothstep', style: { strokeWidth: 2, stroke: '#555' } },
+    { id: 'e-mcu-gnd', source: 'mcu1', target: 'g2', sourceHandle: 'GND', targetHandle: 'in', type: 'smoothstep', style: { strokeWidth: 2, stroke: '#555' } },
+  ]
+};
+
 export const presets: Record<string, CircuitPreset> = {
   basicBlink,
   timer555Blink,
@@ -322,5 +337,6 @@ export const presets: Record<string, CircuitPreset> = {
   bridgeRectifier,
   mcuBlink,
   mcuSpeaker,
-  mcuAnalogOut
+  mcuAnalogOut,
+  mcuAnalogIn
 };
