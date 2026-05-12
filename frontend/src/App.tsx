@@ -44,7 +44,7 @@ import { NandNode } from './components/nodes/NandNode';
 import { NorNode } from './components/nodes/NorNode';
 import { XorNode } from './components/nodes/XorNode';
 import { generateSpiceNetlist } from './utils/spice';
-import { Play, Square, Trash2, Info } from 'lucide-react';
+import { Play, Square, Trash2, Info, Menu, X } from 'lucide-react';
 import { Simulation } from 'eecircuit-engine';
 import { presets } from './utils/presets';
 import { Logo } from './components/Logo';
@@ -82,7 +82,9 @@ const nodeTypes = {
 let engineInstance: any = null;
 let nodeId = 1;
 
-function Sidebar() {
+function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  if (!isOpen) return null;
+
   const onDragStart = (event: DragEvent, nodeType: string, label?: string) => {
     event.dataTransfer.setData('application/reactflow', nodeType);
     if (label) event.dataTransfer.setData('application/reactflow-label', label);
@@ -90,8 +92,19 @@ function Sidebar() {
   };
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 p-4 flex flex-col gap-4 shadow-sm z-10 overflow-y-auto">
-      <h2 className="font-semibold text-gray-700 text-sm uppercase tracking-wider mb-2">Components</h2>
+    <div className="fixed inset-0 z-40 lg:relative lg:z-10 flex h-full pointer-events-none">
+      {/* Backdrop for mobile */}
+      <div 
+        className="fixed inset-0 bg-black/20 lg:hidden pointer-events-auto" 
+        onClick={onClose}
+      ></div>
+      <div className="w-64 h-full bg-white border-r border-gray-200 p-4 flex flex-col gap-4 shadow-xl lg:shadow-sm z-50 relative overflow-y-auto pointer-events-auto">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="font-semibold text-gray-700 text-sm uppercase tracking-wider">Components</h2>
+          <button onClick={onClose} className="lg:hidden p-1 hover:bg-gray-100 rounded text-gray-500">
+            <X size={20} />
+          </button>
+        </div>
       
       <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 mt-4">Transistors</div>
       <div className="grid grid-cols-2 gap-2">
@@ -323,6 +336,7 @@ function Sidebar() {
         <span className="text-sm font-medium">Mic</span>
       </div>
     </div>
+  </div>
   );
 }
 
@@ -339,8 +353,17 @@ function PropertiesPanel({ selectedNode, setNodes, isSimulating, runSimulation }
   };
 
   return (
-    <div className="w-64 bg-white border-l border-gray-200 p-4 shadow-sm z-10 overflow-y-auto">
-      <h2 className="font-semibold text-gray-700 text-sm uppercase tracking-wider mb-4">Properties</h2>
+    <div className="fixed inset-y-0 right-0 w-64 bg-white border-l border-gray-200 p-4 shadow-xl lg:shadow-sm z-40 lg:relative lg:z-10 overflow-y-auto">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="font-semibold text-gray-700 text-sm uppercase tracking-wider">Properties</h2>
+        <button 
+          onClick={() => setNodes((nds: Node[]) => nds.map(n => ({ ...n, selected: false })))} 
+          className="lg:hidden p-1 hover:bg-gray-100 rounded text-gray-500"
+          title="Close Properties"
+        >
+          <X size={20} />
+        </button>
+      </div>
       <div className="text-xs text-gray-500 mb-4 font-mono">ID: {selectedNode.id}</div>
       
       {selectedNode.type === 'voltage' && (
@@ -600,6 +623,20 @@ export default function App() {
   const [simResolution, setSimResolution] = useState<'normal' | 'high'>('normal');
   const [selectedPreset, setSelectedPreset] = useState('basicBlink');
   const [isDocsOpen, setIsDocsOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1024);
+
+  // Auto-close sidebar on small screens
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth <= 1024) {
+        setIsSidebarOpen(false);
+      } else {
+        setIsSidebarOpen(true);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Keep microphone nodes aware of the simulation duration
   useEffect(() => {
@@ -846,22 +883,29 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen w-full bg-gray-50 text-gray-900 font-sans overflow-hidden">
-      <div className="bg-gradient-to-b from-slate-50 to-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-10">
-        <div className="flex items-center gap-6">
+      <div className="bg-gradient-to-b from-slate-50 to-white border-b border-gray-200 px-3 md:px-6 py-1.5 flex items-center justify-between shadow-sm z-10">
+        <div className="flex items-center gap-2 md:gap-4">
+          <button 
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="p-1.5 hover:bg-gray-100 rounded-md lg:hidden text-gray-600"
+            title="Toggle Menu"
+          >
+            <Menu size={20} />
+          </button>
           <a 
             href="https://circuit.expt.in" 
-            className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           >
             <Logo />
-            <h1 className="text-2xl font-black text-indigo-600 tracking-tight">Circuit Expt</h1>
+            <h1 className="text-lg md:text-xl font-black text-indigo-600 tracking-tight hidden sm:block">Circuit Expt</h1>
           </a>
-          <div className="h-6 w-px bg-gray-300"></div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-600">Circuit:</span>
+          <div className="h-6 w-px bg-gray-300 hidden lg:block"></div>
+          <div className="flex items-center gap-1">
+            <span className="text-xs font-medium text-gray-600 hidden xl:block">Circuit:</span>
             <select
               value={selectedPreset}
               onChange={handlePresetChange}
-              className="bg-gray-100 border border-gray-300 text-gray-900 text-sm rounded-md focus:ring-indigo-500 focus:border-indigo-500 block p-2"
+              className="bg-gray-100 border border-gray-300 text-gray-900 text-xs md:text-sm rounded-md focus:ring-indigo-500 focus:border-indigo-500 block p-1 md:p-2 max-w-[100px] sm:max-w-none"
             >
               {Object.keys(presets).map(key => (
                 <option key={key} value={key}>{presets[key].name}</option>
@@ -870,8 +914,8 @@ export default function App() {
           </div>
         </div>
         
-        <div className="flex items-center">
-          <div className="flex items-center gap-1 bg-white px-2 py-1 rounded shadow-sm border border-gray-300">
+        <div className="flex items-center gap-1 md:gap-2">
+          <div className="flex items-center gap-1 bg-white px-1.5 py-1 rounded shadow-sm border border-gray-300 hidden xl:flex">
             <span className="text-xs font-semibold text-gray-700">Duration:</span>
             <input 
               type="number" 
@@ -879,17 +923,17 @@ export default function App() {
               step="0.1" 
               value={simLength} 
               onChange={e => setSimLength(parseFloat(e.target.value) || 1.0)} 
-              className="w-16 text-sm border-none bg-transparent focus:ring-0 text-center"
+              className="w-12 text-xs border-none bg-transparent focus:ring-0 text-center"
             />
             <span className="text-xs text-gray-500 mr-1">s</span>
           </div>
 
-          <div className="flex items-center gap-1 bg-white px-2 py-1 rounded shadow-sm border border-gray-300 mx-2">
+          <div className="flex items-center gap-1 bg-white px-1.5 py-1 rounded shadow-sm border border-gray-300 mx-1 hidden 2xl:flex">
             <span className="text-xs font-semibold text-gray-700">Res:</span>
             <select
               value={simResolution}
               onChange={e => setSimResolution(e.target.value as 'normal' | 'high')}
-              className="bg-transparent border-none text-gray-900 text-sm focus:ring-0"
+              className="bg-transparent border-none text-gray-900 text-xs focus:ring-0"
             >
               <option value="normal">Normal</option>
               <option value="high">High</option>
@@ -898,36 +942,39 @@ export default function App() {
           
           <button 
             onClick={deleteSelected}
-            className="flex items-center gap-2 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-medium text-sm transition-colors mr-4"
+            className="flex items-center justify-center bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-md font-medium text-sm transition-colors"
+            title="Delete Selected"
           >
-            <Trash2 size={16} /> Delete Selected
+            <Trash2 size={16} /> <span className="hidden 2xl:inline ml-2">Delete</span>
           </button>
           <button 
             onClick={runSimulation}
             disabled={isSimulating}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md font-medium text-sm transition-colors"
+            className="flex items-center justify-center bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white p-2 md:px-4 md:py-2 rounded-md font-medium text-sm transition-colors"
+            title="Simulate"
           >
-            <Play size={16} /> Simulate
+            <Play size={16} /> <span className="hidden xl:inline ml-2">Simulate</span>
           </button>
           <button 
             onClick={stopSimulation}
             disabled={!isSimulating}
-            className="flex items-center gap-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md font-medium text-sm transition-colors"
+            className="flex items-center justify-center bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white p-2 md:px-4 md:py-2 rounded-md font-medium text-sm transition-colors"
+            title="Stop"
           >
-            <Square size={16} /> Stop
+            <Square size={16} /> <span className="hidden xl:inline ml-2">Stop</span>
           </button>
           <a
             href="https://github.com/tomgrek/circuitsim"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center ml-4 w-8 h-8 rounded-full border-2 border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors focus:outline-none"
+            className="flex items-center justify-center w-8 h-8 rounded-full border-2 border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors focus:outline-none flex-shrink-0"
             title="View on GitHub"
           >
-            <svg xmlns="http://www.w3.org/-2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
           </a>
           <button
             onClick={() => setIsDocsOpen(true)}
-            className="flex items-center justify-center ml-2 w-8 h-8 rounded-full border-2 border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-colors focus:outline-none"
+            className="flex items-center justify-center w-8 h-8 rounded-full border-2 border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-colors focus:outline-none flex-shrink-0"
             title="Documentation"
           >
             <Info size={18} />
@@ -935,8 +982,8 @@ export default function App() {
         </div>
       </div>
 
-      <div className="flex flex-1 relative min-h-0">
-        <Sidebar />
+      <div className="flex flex-1 relative min-h-0 overflow-hidden">
+        <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
         <ReactFlowProvider>
           <FlowArea 
             nodes={nodes} edges={edges} 
