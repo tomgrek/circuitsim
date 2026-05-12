@@ -37,11 +37,18 @@ import { DiodeNode } from './components/nodes/DiodeNode';
 import { ZenerDiodeNode } from './components/nodes/ZenerDiodeNode';
 import { ACVoltageNode } from './components/nodes/ACVoltageNode';
 import { MicrocontrollerNode } from './components/nodes/MicrocontrollerNode';
+import { AndNode } from './components/nodes/AndNode';
+import { OrNode } from './components/nodes/OrNode';
+import { NotNode } from './components/nodes/NotNode';
+import { NandNode } from './components/nodes/NandNode';
+import { NorNode } from './components/nodes/NorNode';
+import { XorNode } from './components/nodes/XorNode';
 import { generateSpiceNetlist } from './utils/spice';
-import { Play, Square, Trash2 } from 'lucide-react';
-import { createNgspiceSpiceEngine } from '@tscircuit/ngspice-spice-engine';
+import { Play, Square, Trash2, Info } from 'lucide-react';
+import { Simulation } from 'eecircuit-engine';
 import { presets } from './utils/presets';
 import { Logo } from './components/Logo';
+import { DocsModal } from './components/DocsModal';
 
 const nodeTypes = {
   resistor: ResistorNode,
@@ -64,6 +71,12 @@ const nodeTypes = {
   zener: ZenerDiodeNode,
   acvoltage: ACVoltageNode,
   mcu: MicrocontrollerNode,
+  and: AndNode,
+  or: OrNode,
+  not: NotNode,
+  nand: NandNode,
+  nor: NorNode,
+  xor: XorNode,
 };
 
 let engineInstance: any = null;
@@ -93,6 +106,28 @@ function Sidebar() {
         </div>
         <div onDragStart={(event) => onDragStart(event, 'pmos')} draggable className="bg-white border-2 border-gray-300 p-2 rounded cursor-grab hover:border-blue-500 transition-colors text-center shadow-sm">
           <div className="text-xs font-medium">PMOS</div>
+        </div>
+      </div>
+
+      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 mt-4">Logic Gates</div>
+      <div className="grid grid-cols-2 gap-2">
+        <div onDragStart={(event) => onDragStart(event, 'and')} draggable className="bg-white border-2 border-gray-300 p-2 rounded cursor-grab hover:border-blue-500 transition-colors text-center shadow-sm">
+          <div className="text-xs font-medium">AND</div>
+        </div>
+        <div onDragStart={(event) => onDragStart(event, 'or')} draggable className="bg-white border-2 border-gray-300 p-2 rounded cursor-grab hover:border-blue-500 transition-colors text-center shadow-sm">
+          <div className="text-xs font-medium">OR</div>
+        </div>
+        <div onDragStart={(event) => onDragStart(event, 'not')} draggable className="bg-white border-2 border-gray-300 p-2 rounded cursor-grab hover:border-blue-500 transition-colors text-center shadow-sm">
+          <div className="text-xs font-medium">NOT</div>
+        </div>
+        <div onDragStart={(event) => onDragStart(event, 'nand')} draggable className="bg-white border-2 border-gray-300 p-2 rounded cursor-grab hover:border-blue-500 transition-colors text-center shadow-sm">
+          <div className="text-xs font-medium">NAND</div>
+        </div>
+        <div onDragStart={(event) => onDragStart(event, 'nor')} draggable className="bg-white border-2 border-gray-300 p-2 rounded cursor-grab hover:border-blue-500 transition-colors text-center shadow-sm">
+          <div className="text-xs font-medium">NOR</div>
+        </div>
+        <div onDragStart={(event) => onDragStart(event, 'xor')} draggable className="bg-white border-2 border-gray-300 p-2 rounded cursor-grab hover:border-blue-500 transition-colors text-center shadow-sm">
+          <div className="text-xs font-medium">XOR</div>
         </div>
       </div>
 
@@ -564,6 +599,7 @@ export default function App() {
   const [simLength, setSimLength] = useState(1.0);
   const [simResolution, setSimResolution] = useState<'normal' | 'high'>('normal');
   const [selectedPreset, setSelectedPreset] = useState('basicBlink');
+  const [isDocsOpen, setIsDocsOpen] = useState(false);
 
   // Keep microphone nodes aware of the simulation duration
   useEffect(() => {
@@ -596,7 +632,8 @@ export default function App() {
     try {
       setIsSimulating(true);
       if (!engineInstance) {
-        engineInstance = await createNgspiceSpiceEngine();
+        engineInstance = new Simulation();
+        await engineInstance.start();
       }
       
       let { netlist, portToNet, mcuLogs } = generateSpiceNetlist(nodes, edges, simLength, simResolution);
@@ -610,30 +647,37 @@ export default function App() {
       console.log("Simulating netlist (Pass 1):\n", netlist);
       
       console.log("Starting simulation...");
-      let result = await engineInstance.simulate(netlist);
+      engineInstance.setNetList(netlist);
+      let result = await engineInstance.runSim();
       console.log("Simulation result received:", result);
 
-      let voltageGraphs = result?.simulationResultCircuitJson?.filter(
-        (r: any) => r.type === "simulation_transient_voltage_graph"
-      ) || [];
+      const findGraphFromSim = (res: any, netName: string) => {
+        if (!netName || !res) return null;
+        const search = netName.toLowerCase();
+        
+        // Handle eecircuit-engine format
+        if (res.variableNames && res.data && res.data.length > 0 && res.data[0].values) {
+          const idx = res.variableNames.findIndex((v: string) => v.toLowerCase() === search || v.toLowerCase() === `v(${search})`);
+          if (idx !== -1 && res.data[idx]) {
+            return {
+              name: res.variableNames[idx],
+              timestamps_ms: res.data[0].values.map((t: number) => t * 1000), // Time is variable 0
+              voltage_levels: res.data[idx].values
+            };
+          }
+        }
+        
+        return null;
+      };
 
       if (needsTwoPass) {
          console.log("MCU needs inputs, running Pass 2...");
-         const findGraphPass1 = (netName: string) => {
-           if (!netName) return null;
-           const search = netName.toLowerCase();
-           return voltageGraphs.find((g: any) => {
-             const name = g.name.toLowerCase();
-             return name === search || name === `v(${search})`;
-           });
-         };
-         
          const mcuWaveforms: any = {};
          for (const mcu of mcuNodes) {
            mcuWaveforms[mcu.id] = {};
            for (const pin of ['D0', 'D1', 'D2', 'D3', 'A0', 'A1']) {
              const net = portToNet[`${mcu.id}-${pin}`];
-             const graph = findGraphPass1(net);
+             const graph = findGraphFromSim(result, net);
              if (graph) {
                mcuWaveforms[mcu.id][pin] = graph.timestamps_ms.map((t: number, i: number) => ({
                  t, v: graph.voltage_levels[i]
@@ -647,21 +691,11 @@ export default function App() {
          portToNet = pass2.portToNet;
          mcuLogs = pass2.mcuLogs;
          console.log("Simulating netlist (Pass 2):\n", netlist);
-         result = await engineInstance.simulate(netlist);
-         
-         voltageGraphs = result?.simulationResultCircuitJson?.filter(
-           (r: any) => r.type === "simulation_transient_voltage_graph"
-         ) || [];
+         engineInstance.setNetList(netlist);
+         result = await engineInstance.runSim();
       }
 
-      const findGraph = (netName: string) => {
-        if (!netName) return null;
-        const search = netName.toLowerCase();
-        return voltageGraphs.find((g: any) => {
-          const name = g.name.toLowerCase();
-          return name === search || name === `v(${search})`;
-        });
-      };
+      const findGraph = (netName: string) => findGraphFromSim(result, netName);
 
       setNodes(nds => nds.map(n => {
         if (n.type === 'led') {
@@ -882,6 +916,22 @@ export default function App() {
           >
             <Square size={16} /> Stop
           </button>
+          <a
+            href="https://github.com/tomgrek/circuitsim"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center ml-4 w-8 h-8 rounded-full border-2 border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors focus:outline-none"
+            title="View on GitHub"
+          >
+            <svg xmlns="http://www.w3.org/-2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
+          </a>
+          <button
+            onClick={() => setIsDocsOpen(true)}
+            className="flex items-center justify-center ml-2 w-8 h-8 rounded-full border-2 border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-colors focus:outline-none"
+            title="Documentation"
+          >
+            <Info size={18} />
+          </button>
         </div>
       </div>
 
@@ -902,6 +952,7 @@ export default function App() {
              runSimulation={runSimulation}
            />
         )}
+        {isDocsOpen && <DocsModal onClose={() => setIsDocsOpen(false)} />}
       </div>
     </div>
   );

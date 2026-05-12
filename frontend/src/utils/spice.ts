@@ -71,7 +71,6 @@ export function generateSpiceNetlist(nodes: Node[], edges: Edge[], simLength: nu
   let has555 = false;
   let hasOpAmp = false;
   let hasAudio = false;
-
   // 2. Generate SPICE statements for each node
   nodes.forEach(node => {
     if (node.type === 'resistor') {
@@ -237,6 +236,24 @@ export function generateSpiceNetlist(nodes: Node[], edges: Edge[], simLength: nu
       netlist += `M_${node.id} ${nd} ${ng} ${ns} ${ns} PMOS_MODEL_${node.id}\n`;
       netlist += `.model PMOS_MODEL_${node.id} PMOS(LEVEL=1 VTO=${vto} KP=${kp} GAMMA=0.5 PHI=0.6 LAMBDA=0.01)\n`;
     }
+    else if (['and', 'or', 'nand', 'nor', 'xor'].includes(node.type)) {
+      const in1 = getNet(node.id, 'in1');
+      const in2 = getNet(node.id, 'in2');
+      const out = getNet(node.id, 'out');
+      let bSourceExpr = '';
+      if (node.type === 'and') bSourceExpr = `V(${in1}) > 2.5 ? (V(${in2}) > 2.5 ? 5 : 0) : 0`;
+      else if (node.type === 'or') bSourceExpr = `V(${in1}) > 2.5 ? 5 : (V(${in2}) > 2.5 ? 5 : 0)`;
+      else if (node.type === 'nand') bSourceExpr = `V(${in1}) > 2.5 ? (V(${in2}) > 2.5 ? 0 : 5) : 5`;
+      else if (node.type === 'nor') bSourceExpr = `V(${in1}) > 2.5 ? 0 : (V(${in2}) > 2.5 ? 0 : 5)`;
+      else if (node.type === 'xor') bSourceExpr = `V(${in1}) > 2.5 ? (V(${in2}) > 2.5 ? 0 : 5) : (V(${in2}) > 2.5 ? 5 : 0)`;
+      
+      netlist += `B_gate_${node.id} ${out} 0 V = ${bSourceExpr}\n`;
+    }
+    else if (node.type === 'not') {
+      const in1 = getNet(node.id, 'in1');
+      const out = getNet(node.id, 'out');
+      netlist += `B_gate_${node.id} ${out} 0 V = V(${in1}) > 2.5 ? 0 : 5\n`;
+    }
     else if (node.type === 'mcu') {
       const code = (node.data.code as string) || '';
       const inputWaveforms = mcuWaveforms[node.id] || {};
@@ -277,6 +294,8 @@ export function generateSpiceNetlist(nodes: Node[], edges: Edge[], simLength: nu
     }
   });
   
+  // (Logic gates now use native B-sources, no XSPICE .model required)
+
   if (hasOpAmp) {
     netlist += `
 * Idealized Op-Amp Macro Model

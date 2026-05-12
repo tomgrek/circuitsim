@@ -1,6 +1,6 @@
 # Debugging ngspice WASM Simulator
 
-When building or expanding the Circuit Expert Simulator, you'll rely heavily on `@tscircuit/ngspice-spice-engine`. Because it runs inside a WASM container triggered by a complex React frontend, debugging the engine output or generation logic strictly through the UI can be slow and tedious.
+When building or expanding the Circuit Expert Simulator, you'll rely heavily on the custom `eecircuit-engine`. Because it runs inside a WASM container triggered by a complex React frontend, debugging the engine output or generation logic strictly through the UI can be slow and tedious.
 
 Here are key lessons learned when dealing with SPICE netlists and testing browser-based circuit simulation offline.
 

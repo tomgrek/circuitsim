@@ -1,6 +1,6 @@
 
-import { createNgspiceSpiceEngine } from '@tscircuit/ngspice-spice-engine';
-import { generateSpiceNetlist } from './utils/spice';
+import { Simulation } from 'eecircuit-engine';
+import { generateSpiceNetlist } from './utils/spice.js';
 
 const basicBlink = {
   nodes: [
@@ -27,7 +27,8 @@ async function runTest() {
 
   try {
     console.log("Initializing simulation engine...");
-    const engine = await createNgspiceSpiceEngine();
+    const engine = new Simulation();
+    await engine.start();
     console.log("Engine initialized. Starting simulation...");
     
     // Set a timeout to avoid hanging forever
@@ -35,28 +36,31 @@ async function runTest() {
       setTimeout(() => reject(new Error("Simulation timed out")), 10000)
     );
     
-    const simPromise = engine.simulate(netlist);
+    engine.setNetList(netlist);
+    const simPromise = engine.runSim();
     
     const result = await Promise.race([simPromise, timeoutPromise]) as any;
     console.log("Simulation completed successfully!");
     
-    const graphs = result?.simulationResultCircuitJson?.filter(
-      (r: any) => r.type === "simulation_transient_voltage_graph"
-    ) || [];
-    
-    console.log(`Found ${graphs.length} voltage graphs.`);
-    graphs.forEach((g: any) => {
-      console.log(`Graph: ${g.name}, Points: ${g.voltage_levels.length}`);
+    console.log(`Found ${result.numVariables} variables.`);
+    result.variableNames.forEach((name: string) => {
+      console.log(`Graph: ${name}`);
     });
 
     // Check LED specific nodes
     const anodeNet = portToNet['led1-anode'];
     const intNet = 'int_led_led1';
     
-    const findGraph = (name: string) => graphs.find((g: any) => {
-        const n = g.name.toLowerCase();
-        return n === name.toLowerCase() || n === `v(${name.toLowerCase()})`;
-    });
+    const findGraph = (name: string) => {
+        const search = name.toLowerCase();
+        const idx = result.variableNames.findIndex((v: string) => v.toLowerCase() === search || v.toLowerCase() === `v(${search})`);
+        if (idx !== -1 && result.data[idx]) {
+            return {
+                voltage_levels: result.data[idx].values
+            };
+        }
+        return null;
+    };
 
     const anodeGraph = findGraph(anodeNet);
     const intGraph = findGraph(intNet);

@@ -399,6 +399,29 @@ export const mcuCleanAudioSampler: CircuitPreset = {
   ]
 };
 
+export const mixedLogicBlink: CircuitPreset = {
+  name: 'Mixed Logic Blink',
+  nodes: [
+    { id: 'sg1', type: 'signalgen', position: { x: 50, y: 100 }, data: { label: 'Clock 1Hz', waveform: 'square', frequency: 1, amplitude: 5 } },
+    { id: 'sg2', type: 'signalgen', position: { x: 50, y: 300 }, data: { label: 'Clock 2Hz', waveform: 'square', frequency: 2, amplitude: 5 } },
+    { id: 'and1', type: 'and', position: { x: 300, y: 200 }, data: { label: 'AND Gate' } },
+    { id: 'r1', type: 'resistor', position: { x: 500, y: 200 }, data: { label: '330Ω', resistance: 330 } },
+    { id: 'led1', type: 'led', position: { x: 700, y: 200 }, data: { label: 'Output', color: 'lime', v_drop: 2.0, max_current: 20 } },
+    { id: 'g1', type: 'ground', position: { x: 700, y: 350 }, data: { label: 'GND' } },
+    { id: 'g2', type: 'ground', position: { x: 50, y: 200 }, data: { label: 'GND' } },
+    { id: 'g3', type: 'ground', position: { x: 50, y: 400 }, data: { label: 'GND' } },
+  ],
+  edges: [
+    { id: 'e-sg1-and', source: 'sg1', target: 'and1', sourceHandle: 'out', targetHandle: 'in1', type: 'smoothstep' },
+    { id: 'e-sg2-and', source: 'sg2', target: 'and1', sourceHandle: 'out', targetHandle: 'in2', type: 'smoothstep' },
+    { id: 'e-sg1-gnd', source: 'sg1', target: 'g2', sourceHandle: 'gnd', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-sg2-gnd', source: 'sg2', target: 'g3', sourceHandle: 'gnd', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-and-r1', source: 'and1', target: 'r1', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-r1-led', source: 'r1', target: 'led1', sourceHandle: 'out', targetHandle: 'anode', type: 'smoothstep' },
+    { id: 'e-led-gnd', source: 'led1', target: 'g1', sourceHandle: 'cathode', targetHandle: 'in', type: 'smoothstep' },
+  ]
+};
+
 export const presets: Record<string, CircuitPreset> = {
   basicBlink,
   timer555Blink,
@@ -413,5 +436,6 @@ export const presets: Record<string, CircuitPreset> = {
   mcuAnalogOut,
   mcuAnalogIn,
   mcuPassThrough,
-  mcuCleanAudioSampler
+  mcuCleanAudioSampler,
+  mixedLogicBlink
 };
