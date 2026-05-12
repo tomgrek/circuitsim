@@ -845,7 +845,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-full bg-gray-50 text-gray-900 font-sans">
+    <div className="flex flex-col h-screen w-full bg-gray-50 text-gray-900 font-sans overflow-hidden">
       <div className="bg-gradient-to-b from-slate-50 to-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-10">
         <div className="flex items-center gap-6">
           <a 
@@ -935,7 +935,7 @@ export default function App() {
         </div>
       </div>
 
-      <div className="flex flex-1 relative h-[calc(100vh-56px)]">
+      <div className="flex flex-1 relative min-h-0">
         <Sidebar />
         <ReactFlowProvider>
           <FlowArea 

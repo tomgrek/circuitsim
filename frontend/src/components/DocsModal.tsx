@@ -36,7 +36,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.`;
 
 export function DocsModal({ onClose }: DocsModalProps) {
-  const [activeTab, setActiveTab] = useState<'about' | 'simulation' | 'license'>('about');
+  const [activeTab, setActiveTab] = useState<'about' | 'simulation' | 'audio' | 'license'>('about');
 
   return (
     <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
@@ -64,6 +64,14 @@ export function DocsModal({ onClose }: DocsModalProps) {
               }`}
             >
               Simulation Engine
+            </button>
+            <button
+              onClick={() => setActiveTab('audio')}
+              className={`text-left px-4 py-2 rounded-md font-medium transition-colors ${
+                activeTab === 'audio' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              Audio
             </button>
             <button
               onClick={() => setActiveTab('license')}
@@ -121,9 +129,41 @@ export function DocsModal({ onClose }: DocsModalProps) {
                   <li><strong>Pass 1:</strong> The MCU's JS code is executed over the requested simulation time to record its output pin states (digital and analog waveforms).</li>
                   <li><strong>Pass 2:</strong> These recorded waveforms are injected into the SPICE netlist as Piecewise Linear (PWL) voltage sources. The full analog simulation is then run, allowing the MCU to "drive" the analog components.</li>
                 </ul>
-                <p>
+                <p className="mb-4">
                   If an MCU relies on analog inputs (like reading a voltage divider), the engine can perform additional simulation passes, feeding the SPICE outputs back into the JavaScript context to ensure both domains are fully synchronized!
                 </p>
+                <h4 className="text-xl font-semibold mb-2 mt-6">Duration, Resolution, and Looping</h4>
+                <ul className="list-disc pl-6 mb-4 space-y-1">
+                  <li><strong>Duration:</strong> Controls the total physical time the simulation models. A 1.0s simulation calculates exactly 1 second of electrical behavior.</li>
+                  <li><strong>Resolution:</strong> Controls the sampling rate. <em>Normal</em> resolution samples every 1ms (1kHz), which is great for visual animations and fast performance. <em>High</em> resolution samples every 0.1ms (10kHz), which is necessary for accurate audio processing (like the Microphone and Speaker) or fast oscillators.</li>
+                  <li><strong>Looping:</strong> The simulation engine runs in batches. When you click "Simulate", it calculates the circuit's behavior over the requested duration, plays back the results (including audio and animations), and then automatically loops back to the beginning to run the simulation batch again. This creates a continuous interactive experience while maintaining accurate continuous-time math.</li>
+                </ul>
+              </div>
+            )}
+            {activeTab === 'audio' && (
+              <div className="prose max-w-none text-gray-800">
+                <h3 className="text-2xl font-bold mb-4">Audio & Signal Processing</h3>
+                <p className="mb-4">
+                  Circuit Expt supports high-fidelity audio interaction by bridging the browser's Web Audio API with the SPICE simulation engine.
+                </p>
+                
+                <h4 className="text-xl font-semibold mb-2 mt-6">Microphone Input</h4>
+                <p className="mb-4">
+                  The <strong>Microphone</strong> node captures real-time audio from your browser. This audio is decimated and injected into the simulation as a Piecewise Linear (PWL) voltage source.
+                </p>
+                <ul className="list-disc pl-6 mb-4 space-y-2">
+                  <li><strong>Gain (amplification):</strong> Scales the raw microphone signal (-1.0 to +1.0) before it enters the circuit. A gain of 100 turns a full-scale audio signal into a ±100mV peak-to-peak signal at the node's output.</li>
+                </ul>
+
+                <h4 className="text-xl font-semibold mb-2 mt-6">Speaker Output</h4>
+                <p className="mb-4">
+                  The <strong>Speaker</strong> node records the voltage across its terminals during the simulation. This data is then resampled and played back through your system audio.
+                </p>
+                <ul className="list-disc pl-6 mb-4 space-y-2">
+                  <li><strong>Scale (voltageScale):</strong> Defines the expected peak-to-peak voltage of your circuit. This value is used to divide the simulated voltage down to the ±1.0 range required by audio drivers. If your circuit outputs 5V, set this to 5.0 for maximum volume without clipping.</li>
+                  <li><strong>AC Couple:</strong> When enabled, the simulator calculates the average DC offset of the recorded signal and subtracts it before playback. This is essential for listening to signals riding on a DC bias (e.g., a transistor collector output).</li>
+                  <li><strong>Normalize:</strong> Automatically calculates the peak voltage across the entire simulation run and scales the audio so that the loudest point is exactly 80% volume. This overrides the manual <em>Scale</em> setting to ensure a consistent listening experience.</li>
+                </ul>
               </div>
             )}
             {activeTab === 'license' && (
