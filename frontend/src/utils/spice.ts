@@ -4,11 +4,13 @@ import { executeMcuCode, type PWLPoint } from './mcu';
 /** Strip Unicode symbols from component labels to produce valid SPICE values.
  *  e.g. '47kΩ' → '47k', '10µF' → '10uF' */
 function sanitizeSpiceValue(val: string): string {
-  return val
-    .replace(/Ω/g, '')        // Remove ohm symbol
-    .replace(/µ/g, 'u')       // Replace micro sign with 'u'
-    .replace(/[^\x20-\x7E]/g, '') // Strip any remaining non-ASCII
-    .trim();
+  // 1. Replace symbols
+  let cleaned = val.replace(/Ω/g, '').replace(/µ/g, 'u').trim();
+  // 2. Extract leading numeric part with potential SI suffix (e.g. 10k, 4.7, 100u, 5V)
+  const match = cleaned.match(/^([-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?[a-zA-Z]*)/);
+  if (match) return match[1];
+  
+  return cleaned.replace(/[^\x20-\x7E]/g, '');
 }
 
 export function generateSpiceNetlist(nodes: Node[], edges: Edge[], simLength: number = 1.0, simResolution: 'normal' | 'high' = 'normal', mcuWaveforms: Record<string, Record<string, PWLPoint[]>> = {}): { netlist: string; portToNet: Record<string, string>; mcuLogs: Record<string, string[]> } {
@@ -85,8 +87,14 @@ export function generateSpiceNetlist(nodes: Node[], edges: Edge[], simLength: nu
       const n2 = getNet(node.id, 'out');
       netlist += `C_${node.id} ${n1} ${n2} ${val}\n`;
     }
+    else if (node.type === 'inductor') {
+      const val = node.data.inductance !== undefined ? node.data.inductance : sanitizeSpiceValue(String(node.data.label || '100u'));
+      const n1 = getNet(node.id, 'in');
+      const n2 = getNet(node.id, 'out');
+      netlist += `L_${node.id} ${n1} ${n2} ${val}\n`;
+    }
     else if (node.type === 'voltage') {
-      const val = node.data.voltage !== undefined ? Number(node.data.voltage) : (node.data.label ? parseFloat(String(node.data.label)) || 5 : 5);
+      const val = node.data.voltage !== undefined ? node.data.voltage : sanitizeSpiceValue(String(node.data.label || '5'));
       const n1 = getNet(node.id, 'pos');
       const n2 = getNet(node.id, 'neg');
       netlist += `V_${node.id} ${n1} ${n2} DC ${val}\n`;
@@ -124,6 +132,13 @@ export function generateSpiceNetlist(nodes: Node[], edges: Edge[], simLength: nu
       netlist += `D_${node.id} ${n1} ${n2} ZENER_MODEL_${node.id}\n`;
       netlist += `.model ZENER_MODEL_${node.id} D(IS=1e-11 BV=${bv} IBV=1e-3)\n`;
     }
+    else if (node.type === 'switch') {
+      const n1 = getNet(node.id, 'in');
+      const n2 = getNet(node.id, 'out');
+      const isOpen = node.data.isOpen !== false;
+      const res = isOpen ? '1e12' : '0.01';
+      netlist += `R_${node.id} ${n1} ${n2} ${res}\n`;
+    }
     else if (node.type === 'opamp') {
       hasOpAmp = true;
       const in_non = getNet(node.id, 'in_non');
@@ -156,7 +171,13 @@ export function generateSpiceNetlist(nodes: Node[], edges: Edge[], simLength: nu
     else if (node.type === 'signalgen') {
       const freq = Number(node.data.frequency || 1);
       const amp = node.data.amplitude || 5;
-      const type = node.data.waveform === 'square' ? `PULSE(-${amp} ${amp} 0 1m 1m ${0.5/freq} ${1/freq})` : `SINE(0 ${amp} ${freq})`;
+      const duty = (node.data.dutyCycle !== undefined ? Number(node.data.dutyCycle) : 50) / 100;
+      // For square waves, use a 0-to-amp pulse with configurable duty cycle
+      // We use very small rise/fall times relative to frequency
+      const trf = Math.min(1e-6, 0.01 / freq); 
+      const type = node.data.waveform === 'square' 
+        ? `PULSE(0 ${amp} 0 ${trf} ${trf} ${duty/freq} ${1/freq})` 
+        : `SINE(0 ${amp} ${freq})`;
       const n1 = getNet(node.id, 'out');
       const n2 = getNet(node.id, 'gnd');
       netlist += `V_${node.id} ${n1} ${n2} ${type}\n`;
@@ -353,7 +374,7 @@ S_DIS 7 1 8 state SMOD_DIS
   } else if (simResolution === 'high') {
     netlist += `.tran 1m ${simLength}s 0 0.1m\n`;
   } else {
-    netlist += `.tran 1m ${simLength}s\n`;
+    netlist += `.tran 1m ${simLength}s uic\n`;
   }
   netlist += `.end\n`;
 

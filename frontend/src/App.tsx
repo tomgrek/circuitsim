@@ -43,8 +43,10 @@ import { NotNode } from './components/nodes/NotNode';
 import { NandNode } from './components/nodes/NandNode';
 import { NorNode } from './components/nodes/NorNode';
 import { XorNode } from './components/nodes/XorNode';
+import { InductorNode } from './components/nodes/InductorNode';
+import { SwitchNode } from './components/nodes/SwitchNode';
 import { generateSpiceNetlist } from './utils/spice';
-import { Play, Square, Trash2, Info, Menu, X } from 'lucide-react';
+import { Play, Square, Trash2, Info, Menu, X, AlertCircle } from 'lucide-react';
 import { Simulation } from 'eecircuit-engine';
 import { presets } from './utils/presets';
 import { Logo } from './components/Logo';
@@ -77,6 +79,8 @@ const nodeTypes = {
   nand: NandNode,
   nor: NorNode,
   xor: XorNode,
+  inductor: InductorNode,
+  switch: SwitchNode,
 };
 
 let engineInstance: any = null;
@@ -191,36 +195,36 @@ function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) 
 
       <div 
         className="border border-gray-300 rounded p-3 cursor-grab hover:bg-gray-50 flex flex-col items-center gap-2"
-        onDragStart={(e) => onDragStart(e, 'diode', '1N4148')} draggable
+        onDragStart={(e) => onDragStart(e, 'inductor', '100u')} draggable
       >
-        <div className="bg-white border-2 border-gray-400 rounded w-10 h-10 flex items-center justify-center">
-           <svg viewBox="0 0 40 40" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M5 20 H 12 M28 20 H 35 M12 10 V 30 L 28 20 Z" fill="currentColor" />
-              <path d="M28 10 V 30" strokeWidth="3" />
-           </svg>
+        <div className="bg-white border-2 border-green-800 rounded w-16 h-10 flex flex-col items-center justify-center gap-1">
+          <svg width="24" height="8" viewBox="0 0 32 12">
+            <path d="M0,6 C4,0 8,12 12,6 C16,0 20,12 24,6 C28,0 32,12 36,6" fill="none" stroke="#065f46" strokeWidth="2" />
+          </svg>
+          <span className="text-[8px] font-bold">100uH</span>
+        </div>
+        <span className="text-sm font-medium">Inductor</span>
+      </div>
+
+      <div 
+        className="border border-gray-300 rounded p-3 cursor-grab hover:bg-gray-50 flex flex-col items-center gap-2"
+        onDragStart={(e) => onDragStart(e, 'diode')} draggable
+      >
+        <div className="w-10 h-10 flex items-center justify-center">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M8 6v12l8-6-8-6Z" fill="currentColor" />
+            <path d="M16 6v12" />
+          </svg>
         </div>
         <span className="text-sm font-medium">Diode</span>
       </div>
 
       <div 
         className="border border-gray-300 rounded p-3 cursor-grab hover:bg-gray-50 flex flex-col items-center gap-2"
-        onDragStart={(e) => onDragStart(e, 'zener', '5.1V')} draggable
-      >
-        <div className="bg-white border-2 border-gray-400 rounded w-10 h-10 flex items-center justify-center">
-           <svg viewBox="0 0 40 40" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M5 20 H 12 M28 20 H 35 M12 10 V 30 L 28 20 Z" fill="currentColor" />
-              <path d="M28 10 V 30 M28 10 H 32 M24 30 H 28" strokeWidth="3" />
-           </svg>
-        </div>
-        <span className="text-sm font-medium">Zener</span>
-      </div>
-
-      <div 
-        className="border border-gray-300 rounded p-3 cursor-grab hover:bg-gray-50 flex flex-col items-center gap-2"
         onDragStart={(e) => onDragStart(e, 'led')} draggable
       >
-        <div className="bg-gray-100 border-2 border-gray-400 rounded w-10 h-10 flex flex-col items-center justify-center">
-          <div className="w-4 h-4 bg-red-900 opacity-50 rounded-full"></div>
+        <div className="bg-red-100 border-2 border-red-600 rounded-full w-8 h-8 flex items-center justify-center">
+           <div className="w-4 h-4 bg-red-500 rounded-full"></div>
         </div>
         <span className="text-sm font-medium">LED</span>
       </div>
@@ -322,7 +326,6 @@ function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) 
         </div>
         <span className="text-sm font-medium">Speaker</span>
       </div>
-
       <div 
         className="border border-gray-300 rounded p-3 cursor-grab hover:bg-gray-50 flex flex-col items-center gap-2"
         onDragStart={(e) => onDragStart(e, 'microphone')} draggable
@@ -335,18 +338,43 @@ function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) 
         </div>
         <span className="text-sm font-medium">Mic</span>
       </div>
+
+      <div 
+        className="border border-gray-300 rounded p-3 cursor-grab hover:bg-gray-50 flex flex-col items-center gap-2"
+        onDragStart={(e) => onDragStart(e, 'switch')} draggable
+      >
+        <div className="bg-gray-100 border-2 border-gray-400 rounded w-10 h-10 flex items-center justify-center">
+          <svg width="24" height="24" viewBox="0 0 40 30" fill="none" stroke="currentColor" strokeWidth="3">
+             <circle cx="10" cy="20" r="3" fill="currentColor" />
+             <circle cx="30" cy="20" r="3" fill="currentColor" />
+             <line x1="10" y1="20" x2="30" y2="5" stroke="currentColor" strokeLinecap="round" />
+          </svg>
+        </div>
+        <span className="text-sm font-medium">Switch</span>
+      </div>
     </div>
   </div>
   );
 }
 
-function PropertiesPanel({ selectedNode, setNodes, isSimulating, runSimulation }: { selectedNode: Node, setNodes: any, isSimulating: boolean, runSimulation: () => void }) {
+function PropertiesPanel({ selectedNode, setNodes, isSimulating, runSimulation, simLength }: { selectedNode: Node, setNodes: any, isSimulating: boolean, runSimulation: () => void, simLength: number }) {
   if (!selectedNode) return null;
 
   const updateData = (key: string, value: any) => {
-    setNodes((nds: Node[]) => nds.map(n => 
-      n.id === selectedNode.id ? { ...n, data: { ...n.data, [key]: value } } : n
-    ));
+    setNodes((nds: Node[]) => nds.map(n => {
+      if (n.id !== selectedNode.id) return n;
+      const newData = { ...n.data, [key]: value };
+      
+      // If label is edited, clear the "hardcoded" numeric overrides so SPICE parses the new label
+      if (key === 'label') {
+        const overrides = ['voltage', 'resistance', 'capacitance', 'inductance'];
+        overrides.forEach(o => {
+          if (o in newData) delete (newData as any)[o];
+        });
+      }
+      
+      return { ...n, data: newData };
+    }));
     if (isSimulating) {
       setTimeout(runSimulation, 50);
     }
@@ -396,6 +424,32 @@ function PropertiesPanel({ selectedNode, setNodes, isSimulating, runSimulation }
           <input type="text" value={(selectedNode.data.label as string) || '10u'} onChange={e => updateData('label', e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
         </div>
       )}
+      {selectedNode.type === 'inductor' && (
+        <div className="mb-3">
+          <label className="block text-xs font-medium text-gray-700 mb-1">Inductance</label>
+          <input type="text" value={(selectedNode.data.label as string) || '100u'} onChange={e => updateData('label', e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
+        </div>
+      )}
+      {selectedNode.type === 'switch' && (
+        <div className="mb-3">
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-xs font-medium text-gray-700">State</label>
+            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${(selectedNode.data.isOpen !== false) ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+              {(selectedNode.data.isOpen !== false) ? 'OPEN' : 'CLOSED'}
+            </span>
+          </div>
+          <button 
+            onClick={() => updateData('isOpen', selectedNode.data.isOpen === false)}
+            className={`w-full py-2 rounded font-bold text-sm shadow-sm transition-all ${
+              (selectedNode.data.isOpen !== false) 
+                ? 'bg-green-500 hover:bg-green-600 text-white' 
+                : 'bg-red-500 hover:bg-red-600 text-white'
+            }`}
+          >
+            {(selectedNode.data.isOpen !== false) ? 'Close Switch' : 'Open Switch'}
+          </button>
+        </div>
+      )}
       {selectedNode.type === 'led' && (
         <>
           <div className="mb-3">
@@ -429,6 +483,12 @@ function PropertiesPanel({ selectedNode, setNodes, isSimulating, runSimulation }
               <option value="square">Square</option>
             </select>
           </div>
+          {selectedNode.data.waveform === 'square' && (
+            <div className="mb-3">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Duty Cycle (%)</label>
+              <input type="number" min="1" max="99" value={(selectedNode.data.dutyCycle as number) || 50} onChange={e => updateData('dutyCycle', parseInt(e.target.value))} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
+            </div>
+          )}
           <div className="mb-3">
             <label className="block text-xs font-medium text-gray-700 mb-1">Frequency (Hz)</label>
             <input type="number" value={(selectedNode.data.frequency as number) || 1} onChange={e => updateData('frequency', parseInt(e.target.value))} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
@@ -437,6 +497,12 @@ function PropertiesPanel({ selectedNode, setNodes, isSimulating, runSimulation }
             <label className="block text-xs font-medium text-gray-700 mb-1">Amplitude (V)</label>
             <input type="number" value={(selectedNode.data.amplitude as number) || 5} onChange={e => updateData('amplitude', parseInt(e.target.value))} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
           </div>
+          {((selectedNode.data.frequency as number) > 10000 && simLength > 0.5) && (
+            <div className="mb-3 p-2 bg-amber-50 border border-amber-200 rounded text-[10px] text-amber-800 flex items-start gap-2 shadow-sm animate-pulse">
+              <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />
+              <span>Warning: High frequency with long duration may slow down simulation or lock UI. Consider reducing duration below 0.5s.</span>
+            </div>
+          )}
         </>
       )}
       {selectedNode.type === 'mcu' && (
@@ -557,7 +623,7 @@ function PropertiesPanel({ selectedNode, setNodes, isSimulating, runSimulation }
 }
 
 function FlowArea({ 
-  nodes, edges, setNodes, onNodesChange, onEdgesChange, onConnect 
+  nodes, edges, setNodes, onNodesChange, onEdgesChange, onConnect, onNodeClick 
 }: any) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition } = useReactFlow();
@@ -604,6 +670,7 @@ function FlowArea({
         onConnect={onConnect}
         onDrop={onDrop}
         onDragOver={onDragOver}
+        onNodeClick={onNodeClick}
         nodeTypes={nodeTypes}
         connectionMode={ConnectionMode.Loose}
         fitView
@@ -664,6 +731,8 @@ export default function App() {
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
     []
   );
+
+
 
   const runSimulation = async () => {
     try {
@@ -865,6 +934,19 @@ export default function App() {
     }));
   };
 
+  const onNodeClick = useCallback((_: any, node: Node) => {
+    if (node.type === 'switch') {
+      setNodes((nds) => nds.map((n) => {
+        if (n.id === node.id) {
+          return { ...n, data: { ...n.data, isOpen: n.data.isOpen === false } };
+        }
+        return n;
+      }));
+      // Auto-re-trigger simulation so the user sees the effect immediately
+      setTimeout(() => runSimulation(), 50);
+    }
+  }, [setNodes, runSimulation]);
+
   const deleteSelected = () => {
     setNodes(nds => nds.filter(n => !n.selected));
     setEdges(eds => eds.filter(e => !e.selected));
@@ -878,6 +960,9 @@ export default function App() {
       stopSimulation();
       setNodes(preset.nodes);
       setEdges(preset.edges);
+      if (preset.recommendedSimLength) {
+        setSimLength(preset.recommendedSimLength);
+      }
     }
   };
 
@@ -989,15 +1074,17 @@ export default function App() {
             nodes={nodes} edges={edges} 
             setNodes={setNodes}
             onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
+            onNodeClick={onNodeClick}
           />
         </ReactFlowProvider>
         {nodes.find(n => n.selected) && (
            <PropertiesPanel 
-             selectedNode={nodes.find(n => n.selected)!} 
-             setNodes={setNodes} 
-             isSimulating={isSimulating}
-             runSimulation={runSimulation}
-           />
+        selectedNode={nodes.find(n => n.selected)!} 
+        setNodes={setNodes} 
+        isSimulating={isSimulating} 
+        runSimulation={runSimulation}
+        simLength={simLength}
+      />
         )}
         {isDocsOpen && <DocsModal onClose={() => setIsDocsOpen(false)} />}
       </div>

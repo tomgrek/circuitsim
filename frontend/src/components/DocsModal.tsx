@@ -36,7 +36,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.`;
 
 export function DocsModal({ onClose }: DocsModalProps) {
-  const [activeTab, setActiveTab] = useState<'about' | 'simulation' | 'audio' | 'license'>('about');
+  const [activeTab, setActiveTab] = useState<'about' | 'usage' | 'simulation' | 'audio' | 'license'>('about');
 
   return (
     <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
@@ -74,6 +74,14 @@ export function DocsModal({ onClose }: DocsModalProps) {
               Audio
             </button>
             <button
+              onClick={() => setActiveTab('usage')}
+              className={`text-left px-4 py-2 rounded-md font-medium transition-colors ${
+                activeTab === 'usage' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              Usage Guide
+            </button>
+            <button
               onClick={() => setActiveTab('license')}
               className={`text-left px-4 py-2 rounded-md font-medium transition-colors ${
                 activeTab === 'license' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-200'
@@ -104,6 +112,35 @@ export function DocsModal({ onClose }: DocsModalProps) {
                   <li>Virtual test equipment like multimeters and oscilloscopes</li>
                   <li>Dynamic, animated components (e.g. glowing LEDs)</li>
                   <li>Scriptable microcontroller nodes for mixed-signal simulation</li>
+                </ul>
+              </div>
+            )}
+            {activeTab === 'usage' && (
+              <div className="prose max-w-none text-gray-800">
+                <h3 className="text-2xl font-bold mb-4">Using the Playground</h3>
+                
+                <h4 className="text-xl font-semibold mb-2 mt-6">Basic Interaction</h4>
+                <ul className="list-disc pl-6 mb-4 space-y-1">
+                  <li><strong>Add Components:</strong> Drag components from the left sidebar onto the canvas.</li>
+                  <li><strong>Wiring:</strong> Click and drag from any circular port (handle) to another to create a connection. Handles are bidirectional.</li>
+                  <li><strong>Select & Edit:</strong> Click a component to select it and view its properties in the right panel. You can change labels, frequencies, voltages, and more.</li>
+                  <li><strong>Multi-Select:</strong> Hold <strong>Shift</strong> and drag a box over multiple components to select them together.</li>
+                  <li><strong>Delete:</strong> Press the <strong>Delete</strong> or <strong>Backspace</strong> key, or use the trash icon in the header, to remove selected items.</li>
+                </ul>
+
+                <h4 className="text-xl font-semibold mb-2 mt-6">Simulation Controls</h4>
+                <ul className="list-disc pl-6 mb-4 space-y-1">
+                  <li><strong>Simulate:</strong> Click the green <strong>Play</strong> button to run the simulation batch. The simulation will loop automatically.</li>
+                  <li><strong>Stop:</strong> Click the red <strong>Stop</strong> button to end the simulation and reset animations/audio.</li>
+                  <li><strong>Duration:</strong> Set how many seconds of "circuit time" to model. Note that long durations with high-frequency signals can be slow.</li>
+                  <li><strong>Resolution:</strong> Use <em>Normal</em> for logic/LEDs (faster) and <em>High</em> for audio or fast oscillators (more accurate).</li>
+                </ul>
+
+                <h4 className="text-xl font-semibold mb-2 mt-6">Tips & Tricks</h4>
+                <ul className="list-disc pl-6 mb-4 space-y-1">
+                  <li><strong>Grounding:</strong> Every circuit needs at least one <strong>Ground</strong> node to serve as a 0V reference.</li>
+                  <li><strong>Oscilloscope:</strong> Connect the probe channels (CH1/CH2) to different parts of your circuit to compare waveforms.</li>
+                  <li><strong>Interactive LEDs:</strong> LEDs will glow based on the current flowing through them. If they turn into a 💥, they've exceeded their current limit!</li>
                 </ul>
               </div>
             )}
