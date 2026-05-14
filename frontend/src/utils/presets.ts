@@ -461,6 +461,7 @@ export const opAmpAmp: CircuitPreset = {
     // Feedback network (Gain = 1 + Rf/Rg)
     { id: 'rg', type: 'resistor', position: { x: 550, y: 450 }, data: { label: '1k' } },
     { id: 'rf', type: 'resistor', position: { x: 750, y: 450 }, data: { label: '10k' } },
+    { id: 'cg', type: 'capacitor', position: { x: 450, y: 450 }, data: { label: '100uF' } },
     
     // Output coupling
     { id: 'cout', type: 'capacitor', position: { x: 900, y: 320 }, data: { label: '47uF' } },
@@ -489,7 +490,8 @@ export const opAmpAmp: CircuitPreset = {
     { id: 'e-oaout-rf', source: 'oa1', target: 'rf', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
     { id: 'e-rf-oainv', source: 'rf', target: 'oa1', sourceHandle: 'out', targetHandle: 'in_inv', type: 'smoothstep' },
     { id: 'e-rg-oainv', source: 'rg', target: 'oa1', sourceHandle: 'out', targetHandle: 'in_inv', type: 'smoothstep' },
-    { id: 'e-rg-gnd', source: 'rg', target: 'g1', sourceHandle: 'in', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-rg-cg', source: 'rg', target: 'cg', sourceHandle: 'in', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-cg-gnd', source: 'cg', target: 'g1', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
     
     // Output
     { id: 'e-oaout-cout', source: 'oa1', target: 'cout', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
