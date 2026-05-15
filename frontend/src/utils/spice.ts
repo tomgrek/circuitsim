@@ -3,7 +3,7 @@ import { executeMcuCode, type PWLPoint } from './mcu';
 
 /** Strip Unicode symbols from component labels to produce valid SPICE values.
  *  e.g. '47kΩ' → '47k', '10µF' → '10uF' */
-function sanitizeSpiceValue(val: string): string {
+export function sanitizeSpiceValue(val: string): string {
   // 1. Replace symbols
   let cleaned = val.replace(/Ω/g, '').replace(/µ/g, 'u').trim();
   // 2. Extract leading numeric part with potential SI suffix (e.g. 10k, 4.7, 100u, 5V)

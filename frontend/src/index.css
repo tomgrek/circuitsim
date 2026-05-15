@@ -8,3 +8,37 @@ html, body, #root {
   padding: 0;
   font-family: 'Outfit', sans-serif;
 }
+
+.react-flow__handle {
+  width: 8px !important;
+  height: 8px !important;
+  border: 2px solid white !important;
+}
+
+@keyframes electric-glow {
+  0% { filter: drop-shadow(0 0 2px #fbbf24) drop-shadow(0 0 5px #f59e0b); }
+  50% { filter: drop-shadow(0 0 5px #fbbf24) drop-shadow(0 0 12px #f59e0b); }
+  100% { filter: drop-shadow(0 0 2px #fbbf24) drop-shadow(0 0 5px #f59e0b); }
+}
+
+@keyframes dash-move {
+  from { stroke-dashoffset: 24; }
+  to { stroke-dashoffset: 0; }
+}
+
+.edge-aura {
+  stroke: #fbbf24 !important;
+  stroke-width: 4 !important;
+  stroke-dasharray: 8 16;
+  animation: electric-glow 1.5s infinite ease-in-out, dash-move 0.8s infinite linear;
+  transition: all 0.3s ease;
+}
+
+.edge-aura-faint {
+  stroke: #fcd34d !important;
+  stroke-width: 2 !important;
+  stroke-dasharray: 4 20;
+  animation: dash-move 1.5s infinite linear;
+  filter: drop-shadow(0 0 2px #fbbf24);
+  transition: all 0.3s ease;
+}

@@ -45,10 +45,16 @@ import { NorNode } from './components/nodes/NorNode';
 import { XorNode } from './components/nodes/XorNode';
 import { InductorNode } from './components/nodes/InductorNode';
 import { SwitchNode } from './components/nodes/SwitchNode';
-import { generateSpiceNetlist } from './utils/spice';
-import { Play, Square, Trash2, Info, Menu, X, AlertCircle } from 'lucide-react';
+import { generateSpiceNetlist, sanitizeSpiceValue } from './utils/spice';
+import { Play, Square, Trash2, Info, Menu, X, AlertCircle, Settings } from 'lucide-react';
 import { Simulation } from 'eecircuit-engine';
 import { presets } from './utils/presets';
+import { AuraEdge } from './components/AuraEdge';
+import { SettingsModal } from './components/SettingsModal';
+
+const edgeTypes = {
+  aura: AuraEdge,
+};
 import { Logo } from './components/Logo';
 import { DocsModal } from './components/DocsModal';
 
@@ -672,6 +678,7 @@ function FlowArea({
         onDragOver={onDragOver}
         onNodeClick={onNodeClick}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         connectionMode={ConnectionMode.Loose}
         fitView
       >
@@ -690,6 +697,8 @@ export default function App() {
   const [simResolution, setSimResolution] = useState<'normal' | 'high'>('normal');
   const [selectedPreset, setSelectedPreset] = useState('basicBlink');
   const [isDocsOpen, setIsDocsOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [showAura, setShowAura] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1024);
 
   // Auto-close sidebar on small screens
@@ -718,6 +727,14 @@ export default function App() {
     });
   }, [simLength, setNodes]);
 
+  // Update edges when aura setting changes
+  useEffect(() => {
+    setEdges(eds => eds.map(e => ({
+      ...e,
+      type: showAura ? 'aura' : 'smoothstep'
+    })));
+  }, [showAura, setEdges]);
+
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)),
     []
@@ -734,17 +751,18 @@ export default function App() {
 
 
 
-  const runSimulation = async () => {
+  const runSimulation = async (nodesOverride?: Node[]) => {
     try {
+      const currentNodes = nodesOverride || nodes;
       setIsSimulating(true);
       if (!engineInstance) {
         engineInstance = new Simulation();
         await engineInstance.start();
       }
       
-      let { netlist, portToNet, mcuLogs } = generateSpiceNetlist(nodes, edges, simLength, simResolution);
+      let { netlist, portToNet, mcuLogs } = generateSpiceNetlist(currentNodes, edges, simLength, simResolution);
       
-      const mcuNodes = nodes.filter(n => n.type === 'mcu');
+      const mcuNodes = currentNodes.filter(n => n.type === 'mcu');
       const needsTwoPass = mcuNodes.some(n => {
         const code = (n.data.code as string) || "pinMode('D0', 'OUTPUT');\nwhile(true) {\n  digitalWrite('D0', 1);\n  sleep(500);\n  digitalWrite('D0', 0);\n  sleep(500);\n}";
         return code.includes('Read');
@@ -792,127 +810,106 @@ export default function App() {
            }
          }
          
-         const pass2 = generateSpiceNetlist(nodes, edges, simLength, simResolution, mcuWaveforms);
+         const pass2 = generateSpiceNetlist(currentNodes, edges, simLength, simResolution, mcuWaveforms);
          netlist = pass2.netlist;
          portToNet = pass2.portToNet;
          mcuLogs = pass2.mcuLogs;
-         console.log("Simulating netlist (Pass 2):\n", netlist);
          engineInstance.setNetList(netlist);
          result = await engineInstance.runSim();
       }
-
+      
       const findGraph = (netName: string) => findGraphFromSim(result, netName);
 
-      setNodes(nds => nds.map(n => {
+      const updatedNodes = currentNodes.map(n => {
+        let newNode = { ...n };
+        
+        // 1. Calculate current_array for nodes with terminals
+        const v1Net = portToNet[`${n.id}-in`] || portToNet[`${n.id}-pos`] || portToNet[`${n.id}-anode`] || portToNet[`${n.id}-c`];
+        const v2Net = portToNet[`${n.id}-out`] || portToNet[`${n.id}-neg`] || portToNet[`${n.id}-gnd`] || portToNet[`${n.id}-cathode`] || portToNet[`${n.id}-e`];
+        const v1G = findGraph(v1Net);
+        const v2G = findGraph(v2Net) || (v1G ? { voltage_levels: new Array(v1G.voltage_levels.length).fill(0) } : null);
+        
+        if (v1G && v2G) {
+          let R = 1000;
+          if (n.type === 'resistor' || n.type === 'inductor') {
+            const valStr = sanitizeSpiceValue(String(n.data.label || (n.type === 'resistor' ? '1k' : '100u')));
+            R = parseFloat(valStr) || 1000;
+            const suffix = valStr.slice(-1).toLowerCase();
+            if (suffix === 'k') R *= 1000;
+            if (suffix === 'u') R /= 1000000;
+            if (suffix === 'm' && valStr.slice(-2).toLowerCase() !== 'me') R /= 1000;
+          } else if (n.type === 'switch') {
+            const isOpen = n.data.isOpen !== false;
+            R = isOpen ? 1e12 : 0.01; 
+          } else if (n.type === 'led' || n.type === 'diode') {
+            R = 100;
+          } else if (n.type === 'npn' || n.type === 'pnp') {
+            R = 50;
+          }
+          const curArr = v1G.voltage_levels.map((v, i) => Math.abs(v - (v2G.voltage_levels[i] || 0)) / (R || 1));
+          newNode.data = { ...newNode.data, current_array: curArr, time_points: v1G.timestamps_ms };
+        }
+
+        // 2. Component-specific logic
         if (n.type === 'led') {
-          const anodeNet = portToNet[`${n.id}-anode`];
           const intNet = `int_led_${n.id}`;
-          
-          const anodeGraph = findGraph(anodeNet);
+          const anodeGraph = findGraph(portToNet[`${n.id}-anode`]);
           const intGraph = findGraph(intNet);
-          
           let brightness = 0;
           let isExploded = !!n.data.isExploded;
-          
           if (!isExploded && anodeGraph && intGraph) {
-            // Find max current across the transient simulation
-            let max_current_mA = 0;
-            const current_array = [];
+            const curArray = [];
+            let maxI = 0;
             for (let i = 0; i < anodeGraph.timestamps_ms.length; i++) {
-               const vA = anodeGraph.voltage_levels[i];
-               const vI = intGraph.voltage_levels[i];
-               const current = (vA - vI) / 1.0 * 1000; // R=1 ohm, convert to mA
-               current_array.push(current);
-               if (current > max_current_mA) max_current_mA = current;
+              const I = Math.abs(anodeGraph.voltage_levels[i] - intGraph.voltage_levels[i]); 
+              curArray.push(I);
+              if (I > maxI) maxI = I;
             }
-            
-            const max_allowed = Number(n.data.max_current || 20);
-            if (max_current_mA > max_allowed) {
-               isExploded = true;
-               brightness = 0;
-            } else if (max_current_mA > 0.5) {
-               brightness = Math.min(1, max_current_mA / max_allowed);
-            }
-            
-            return { ...n, data: { ...n.data, brightness, isExploded, current_array, time_points: anodeGraph.timestamps_ms } };
+            const max_allowed = Number(n.data.max_current || 20) / 1000;
+            if (maxI > max_allowed * 1.5) isExploded = true;
+            else if (maxI > 0.0005) brightness = Math.min(1, maxI / max_allowed);
+            newNode.data = { ...newNode.data, brightness, isExploded, current_array: curArray, time_points: anodeGraph.timestamps_ms };
           }
-          
-          return { ...n, data: { ...n.data, brightness, isExploded } };
+        } else if (n.type === 'multimeter') {
+          const vPos = findGraph(portToNet[`${n.id}-pos`]);
+          const vNeg = findGraph(portToNet[`${n.id}-neg`]);
+          const valPos = vPos ? vPos.voltage_levels[vPos.voltage_levels.length - 1] : 0;
+          const valNeg = vNeg ? vNeg.voltage_levels[vNeg.voltage_levels.length - 1] : 0;
+          newNode.data = { ...newNode.data, voltage: valPos - valNeg };
+        } else if (n.type === 'scope') {
+          const ch1 = findGraph(portToNet[`${n.id}-ch1`]);
+          const ch2 = findGraph(portToNet[`${n.id}-ch2`]);
+          const gnd = findGraph(portToNet[`${n.id}-gnd`]);
+          let vd1: any[] = [];
+          let vd2: any[] = [];
+          if (ch1) vd1 = ch1.timestamps_ms.map((t, i) => ({ t, v: ch1.voltage_levels[i] - (gnd ? gnd.voltage_levels[i] : 0) }));
+          if (ch2) vd2 = ch2.timestamps_ms.map((t, i) => ({ t, v: ch2.voltage_levels[i] - (gnd ? gnd.voltage_levels[i] : 0) }));
+          newNode.data = { ...newNode.data, voltageData1: vd1, voltageData2: vd2 };
+        } else if (n.type === 'speaker') {
+          const graph = findGraph(portToNet[`${n.id}-in`]);
+          const gnd = findGraph(portToNet[`${n.id}-gnd`]);
+          let vd: any[] = [];
+          if (graph) vd = graph.timestamps_ms.map((t, i) => ({ t, v: graph.voltage_levels[i] - (gnd ? gnd.voltage_levels[i] : 0) }));
+          newNode.data = { ...newNode.data, voltageData: vd };
+        } else if (n.type === 'mcu') {
+          newNode.data.logs = mcuLogs[n.id];
         }
         
-        if (n.type === 'multimeter') {
-          const posNet = portToNet[`${n.id}-pos`];
-          const negNet = portToNet[`${n.id}-neg`];
-          const posGraph = findGraph(posNet);
-          const negGraph = findGraph(negNet);
-          
-          let voltage = 0;
-          if (posGraph || negGraph) {
-            const posLevels = posGraph?.voltage_levels || [];
-            const negLevels = negGraph?.voltage_levels || [];
-            // Get the last simulated point
-            const vPos = posLevels.length > 0 ? posLevels[posLevels.length - 1] : 0;
-            const vNeg = negLevels.length > 0 ? negLevels[negLevels.length - 1] : 0;
-            voltage = vPos - vNeg;
-          }
-          return { ...n, data: { ...n.data, voltage } };
-        }
+        return newNode;
+      });
 
-        if (n.type === 'scope') {
-          const ch1Net = portToNet[`${n.id}-ch1`];
-          const ch2Net = portToNet[`${n.id}-ch2`];
-          const gndNet = portToNet[`${n.id}-gnd`]; 
-          
-          const ch1Graph = findGraph(ch1Net);
-          const ch2Graph = findGraph(ch2Net);
-          const gndGraph = findGraph(gndNet);
-          
-          let voltageData1: {t: number, v: number}[] = [];
-          let voltageData2: {t: number, v: number}[] = [];
+      setNodes(updatedNodes);
 
-          if (ch1Graph) {
-             voltageData1 = ch1Graph.timestamps_ms.map((t: number, i: number) => {
-               const vIn = ch1Graph.voltage_levels[i];
-               const vGnd = gndGraph ? gndGraph.voltage_levels[i] : 0;
-               return { t, v: vIn - vGnd };
-             });
-          }
-          if (ch2Graph) {
-             voltageData2 = ch2Graph.timestamps_ms.map((t: number, i: number) => {
-               const vIn = ch2Graph.voltage_levels[i];
-               const vGnd = gndGraph ? gndGraph.voltage_levels[i] : 0;
-               return { t, v: vIn - vGnd };
-             });
-          }
-          return { ...n, data: { ...n.data, voltageData1, voltageData2 } };
-        }
-
-        if (n.type === 'speaker') {
-          const inNet = portToNet[`${n.id}-in`];
-          const gndNet = portToNet[`${n.id}-gnd`];
-          
-          const inGraph = findGraph(inNet);
-          const gndGraph = findGraph(gndNet);
-          
-          let voltageData: {t: number, v: number}[] = [];
-          if (inGraph) {
-             voltageData = inGraph.timestamps_ms.map((t: number, i: number) => {
-               const vIn = inGraph.voltage_levels[i];
-               const vGnd = gndGraph ? gndGraph.voltage_levels[i] : 0;
-               return { t, v: vIn - vGnd };
-             });
-          }
-          // Only update if there is new data to play
-          if (voltageData.length > 0) {
-              return { ...n, data: { ...n.data, voltageData } };
-          }
-        }
-
-        if (n.type === 'mcu') {
-          return { ...n, data: { ...n.data, logs: mcuLogs[n.id] } };
-        }
-        
-        return n;
+      setEdges(eds => eds.map(e => {
+        const srcNode = updatedNodes.find(n => n.id === e.source);
+        const tgtNode = updatedNodes.find(n => n.id === e.target);
+        const curArr = srcNode?.data.current_array || tgtNode?.data.current_array;
+        const tPts = srcNode?.data.time_points || tgtNode?.data.time_points;
+        return { 
+          ...e, 
+          type: showAura ? 'aura' : 'smoothstep', 
+          data: { ...e.data, current_array: curArr, time_points: tPts } 
+        };
       }));
       
     } catch (e) {
@@ -932,20 +929,32 @@ export default function App() {
       }
       return n;
     }));
+    setEdges(eds => eds.map(e => ({ 
+      ...e, 
+      className: '', 
+      animated: false,
+      data: { ...e.data, current_array: undefined, time_points: undefined }
+    })));
   };
 
   const onNodeClick = useCallback((_: any, node: Node) => {
     if (node.type === 'switch') {
-      setNodes((nds) => nds.map((n) => {
-        if (n.id === node.id) {
-          return { ...n, data: { ...n.data, isOpen: n.data.isOpen === false } };
+      setNodes((nds) => {
+        const nextNodes = nds.map((n) => {
+          if (n.id === node.id) {
+            return { ...n, data: { ...n.data, isOpen: n.data.isOpen === false } };
+          }
+          return n;
+        });
+        
+        // Auto-re-trigger simulation with the NEW state
+        if (isSimulating) {
+          setTimeout(() => runSimulation(nextNodes), 50);
         }
-        return n;
-      }));
-      // Auto-re-trigger simulation so the user sees the effect immediately
-      setTimeout(() => runSimulation(), 50);
+        return nextNodes;
+      });
     }
-  }, [setNodes, runSimulation]);
+  }, [setNodes, runSimulation, isSimulating]);
 
   const deleteSelected = () => {
     setNodes(nds => nds.filter(n => !n.selected));
@@ -1033,7 +1042,7 @@ export default function App() {
             <Trash2 size={16} /> <span className="hidden 2xl:inline ml-2">Delete</span>
           </button>
           <button 
-            onClick={runSimulation}
+            onClick={() => runSimulation()}
             disabled={isSimulating}
             className="flex items-center justify-center bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white p-2 md:px-4 md:py-2 rounded-md font-medium text-sm transition-colors"
             title="Simulate"
@@ -1048,6 +1057,20 @@ export default function App() {
           >
             <Square size={16} /> <span className="hidden xl:inline ml-2">Stop</span>
           </button>
+          <button
+            onClick={() => setIsDocsOpen(true)}
+            className="flex items-center justify-center w-8 h-8 rounded-full border-2 border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-colors focus:outline-none flex-shrink-0"
+            title="Documentation"
+          >
+            <Info size={18} />
+          </button>
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className="flex items-center justify-center w-8 h-8 rounded-full border-2 border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors focus:outline-none flex-shrink-0"
+            title="Settings"
+          >
+            <Settings size={18} />
+          </button>
           <a
             href="https://github.com/tomgrek/circuitsim"
             target="_blank"
@@ -1057,13 +1080,6 @@ export default function App() {
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
           </a>
-          <button
-            onClick={() => setIsDocsOpen(true)}
-            className="flex items-center justify-center w-8 h-8 rounded-full border-2 border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-colors focus:outline-none flex-shrink-0"
-            title="Documentation"
-          >
-            <Info size={18} />
-          </button>
         </div>
       </div>
 
@@ -1087,6 +1103,13 @@ export default function App() {
       />
         )}
         {isDocsOpen && <DocsModal onClose={() => setIsDocsOpen(false)} />}
+        {isSettingsOpen && (
+          <SettingsModal 
+            onClose={() => setIsSettingsOpen(false)} 
+            showAura={showAura}
+            setShowAura={setShowAura}
+          />
+        )}
       </div>
     </div>
   );

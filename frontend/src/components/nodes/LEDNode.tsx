@@ -34,10 +34,10 @@ export function LEDNode({ data }: any) {
         }
       }
       
-      const current = data.current_array[idx] || 0;
+      const currentmA = (data.current_array[idx] || 0) * 1000;
       let brightness = 0;
-      if (current > 0.5) {
-        brightness = Math.min(1, current / max_current);
+      if (currentmA > 0.5) {
+        brightness = Math.min(1, currentmA / max_current);
       }
       
       if (glowRef.current) {
@@ -45,7 +45,7 @@ export function LEDNode({ data }: any) {
         glowRef.current.style.boxShadow = brightness > 0 ? `0 0 ${10 + brightness * 20}px ${color}` : 'none';
       }
       if (textRef.current) {
-        textRef.current.innerText = current.toFixed(1) + 'mA';
+        textRef.current.innerText = currentmA.toFixed(1) + 'mA';
       }
       
       animationFrame = requestAnimationFrame(animate);
