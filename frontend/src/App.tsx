@@ -46,11 +46,12 @@ import { XorNode } from './components/nodes/XorNode';
 import { InductorNode } from './components/nodes/InductorNode';
 import { SwitchNode } from './components/nodes/SwitchNode';
 import { generateSpiceNetlist, sanitizeSpiceValue } from './utils/spice';
-import { Play, Square, Trash2, Info, Menu, X, AlertCircle, Settings } from 'lucide-react';
+import { Play, Square, Trash2, Info, Menu, X, AlertCircle, Settings, Save } from 'lucide-react';
 import { Simulation } from 'eecircuit-engine';
 import { presets } from './utils/presets';
 import { AuraEdge } from './components/AuraEdge';
 import { SettingsModal } from './components/SettingsModal';
+import { loadSettings, saveSettings, loadUserPresets, addUserPreset, removeUserPreset, nameToKey, type CircuitPreset } from './utils/storage';
 
 const edgeTypes = {
   aura: AuraEdge,
@@ -690,16 +691,22 @@ function FlowArea({
 }
 
 export default function App() {
+  // ── Initialise from localStorage ────────────────────────────────────────────
+  const savedSettings = loadSettings();
+
   const [nodes, setNodes] = useState<Node[]>(presets.basicBlink.nodes);
   const [edges, setEdges] = useState<Edge[]>(presets.basicBlink.edges);
   const [isSimulating, setIsSimulating] = useState(false);
-  const [simLength, setSimLength] = useState(1.0);
-  const [simResolution, setSimResolution] = useState<'normal' | 'high'>('normal');
+  const [simLength, setSimLength] = useState(savedSettings.simLength ?? 1.0);
+  const [simResolution, setSimResolution] = useState<'normal' | 'high'>(savedSettings.simResolution ?? 'normal');
   const [selectedPreset, setSelectedPreset] = useState('basicBlink');
   const [isDocsOpen, setIsDocsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [showAura, setShowAura] = useState(false);
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
+  const [saveDialogName, setSaveDialogName] = useState('');
+  const [showAura, setShowAura] = useState(savedSettings.showAura ?? false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1024);
+  const [userPresets, setUserPresets] = useState<Record<string, CircuitPreset>>(() => loadUserPresets());
 
   // Auto-close sidebar on small screens
   useEffect(() => {
@@ -726,6 +733,14 @@ export default function App() {
       );
     });
   }, [simLength, setNodes]);
+
+  // ── Auto-save settings ──────────────────────────────────────────────────────
+  useEffect(() => { saveSettings({ showAura }); }, [showAura]);
+  useEffect(() => { saveSettings({ simResolution }); }, [simResolution]);
+  useEffect(() => {
+    const t = setTimeout(() => saveSettings({ simLength }), 500);
+    return () => clearTimeout(t);
+  }, [simLength]);
 
   // Update edges when aura setting changes
   useEffect(() => {
@@ -961,10 +976,13 @@ export default function App() {
     setEdges(eds => eds.filter(e => !e.selected));
   };
 
+  // ── Merged preset map (built-in + user) ────────────────────────────────────
+  const allPresets: Record<string, CircuitPreset> = { ...presets, ...userPresets };
+
   const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const key = e.target.value;
     setSelectedPreset(key);
-    const preset = presets[key];
+    const preset = allPresets[key];
     if (preset) {
       stopSimulation();
       setNodes(preset.nodes);
@@ -972,6 +990,33 @@ export default function App() {
       if (preset.recommendedSimLength) {
         setSimLength(preset.recommendedSimLength);
       }
+    }
+  };
+
+  // ── Save current circuit as user preset ────────────────────────────────────
+  const handleSavePreset = () => {
+    const trimmed = saveDialogName.trim();
+    if (!trimmed) return;
+    const key = nameToKey(trimmed);
+    const preset: CircuitPreset = {
+      name: `User: ${trimmed}`,
+      nodes: nodes.map(n => ({ ...n, selected: false })),
+      edges: edges.map(e => ({ ...e, data: undefined })),
+    };
+    const updated = addUserPreset(key, preset);
+    setUserPresets(updated);
+    setSelectedPreset(key);
+    setIsSaveDialogOpen(false);
+    setSaveDialogName('');
+  };
+
+  const handleDeleteUserPreset = (key: string) => {
+    const updated = removeUserPreset(key);
+    setUserPresets(updated);
+    if (selectedPreset === key) {
+      setSelectedPreset('basicBlink');
+      setNodes(presets.basicBlink.nodes);
+      setEdges(presets.basicBlink.edges);
     }
   };
 
@@ -1001,9 +1046,18 @@ export default function App() {
               onChange={handlePresetChange}
               className="bg-gray-100 border border-gray-300 text-gray-900 text-xs md:text-sm rounded-md focus:ring-indigo-500 focus:border-indigo-500 block p-1 md:p-2 max-w-[100px] sm:max-w-none"
             >
-              {Object.keys(presets).map(key => (
-                <option key={key} value={key}>{presets[key].name}</option>
-              ))}
+              <optgroup label="Built-in">
+                {Object.keys(presets).map(key => (
+                  <option key={key} value={key}>{presets[key].name}</option>
+                ))}
+              </optgroup>
+              {Object.keys(userPresets).length > 0 && (
+                <optgroup label="My Circuits">
+                  {Object.keys(userPresets).map(key => (
+                    <option key={key} value={key}>{userPresets[key].name}</option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </div>
         </div>
@@ -1065,6 +1119,13 @@ export default function App() {
             <Info size={18} />
           </button>
           <button
+            onClick={() => { setSaveDialogName(''); setIsSaveDialogOpen(true); }}
+            className="flex items-center justify-center w-8 h-8 rounded-full border-2 border-amber-200 text-amber-600 hover:bg-amber-50 hover:border-amber-300 transition-colors focus:outline-none flex-shrink-0"
+            title="Save circuit as preset"
+          >
+            <Save size={18} />
+          </button>
+          <button
             onClick={() => setIsSettingsOpen(true)}
             className="flex items-center justify-center w-8 h-8 rounded-full border-2 border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors focus:outline-none flex-shrink-0"
             title="Settings"
@@ -1104,11 +1165,53 @@ export default function App() {
         )}
         {isDocsOpen && <DocsModal onClose={() => setIsDocsOpen(false)} />}
         {isSettingsOpen && (
-          <SettingsModal 
-            onClose={() => setIsSettingsOpen(false)} 
+          <SettingsModal
+            onClose={() => setIsSettingsOpen(false)}
             showAura={showAura}
             setShowAura={setShowAura}
+            userPresets={userPresets}
+            onDeleteUserPreset={handleDeleteUserPreset}
           />
+        )}
+
+        {/* Save Circuit Dialog */}
+        {isSaveDialogOpen && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-150">
+              <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-4 flex items-center gap-2 text-white">
+                <Save size={20} />
+                <h2 className="text-lg font-bold tracking-tight">Save Circuit</h2>
+              </div>
+              <div className="p-6 space-y-4">
+                <label className="block text-sm font-semibold text-gray-700">Circuit Name</label>
+                <input
+                  type="text"
+                  autoFocus
+                  value={saveDialogName}
+                  onChange={e => setSaveDialogName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleSavePreset(); if (e.key === 'Escape') setIsSaveDialogOpen(false); }}
+                  placeholder="My Awesome Circuit"
+                  className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                />
+                <p className="text-[11px] text-gray-400">Saved as <span className="font-mono font-semibold">User: {saveDialogName.trim() || '…'}</span> in the preset list.</p>
+              </div>
+              <div className="bg-gray-50 px-6 py-4 flex gap-3 justify-end">
+                <button
+                  onClick={() => setIsSaveDialogOpen(false)}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSavePreset}
+                  disabled={!saveDialogName.trim()}
+                  className="bg-amber-500 hover:bg-amber-600 disabled:bg-gray-300 text-white px-5 py-2 rounded-xl font-bold text-sm shadow-lg shadow-amber-200 transition-all active:scale-95"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

@@ -15,7 +15,7 @@ export function PnpNode({ data }: any) {
         <path d="M14 10 V 30" strokeWidth="4" />
         <path d="M14 16 L 26 4 V 0" />
         <path d="M14 24 L 26 36 V 40" />
-        <path d="M14 16 L 20 17 M14 16 L 15 10" strokeWidth="2" />
+        <path d="M14 16 L 19 15 M14 16 L 15 11" strokeWidth="2" />
       </svg>
       <div className="text-[10px] mt-1 font-mono text-gray-600">{data.label || 'PNP'}</div>
     </div>
