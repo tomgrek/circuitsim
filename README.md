@@ -1,13 +1,16 @@
-# Circuit Simulator
+# Circuit Expt (Electronics Playground)
 
-A high-fidelity, interactive circuit simulator built with React and powered by an optimized Ngspice WebAssembly engine.
+A high-fidelity, interactive electronics playground built with React and powered by an optimized Ngspice WebAssembly engine.
+
+> [!IMPORTANT]
+> **DEVELOPER KNOWLEDGE BASE**: Before making any changes or adding components, please read **[docs/knowledge.md](docs/knowledge.md)**. This file contains the "Source of Truth" for the architecture, state management (e.g. `isSimulating`), and real-time animation patterns.
 
 ## 🚀 Tech Stack
 
 - **Frontend**: [React](https://reactjs.org/) + [React Flow](https://reactflow.dev/) for the visual circuit editor.
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/) for a modern, responsive UI.
-- **Simulation Engine**: [Ngspice](https://ngspice.sourceforge.io/) (C) compiled to **WebAssembly** via [Emscripten](https://emscripten.org/).
-- **Engine Bridge**: `eecircuit-engine` - a TypeScript wrapper that synchronizes JavaScript and the WASM simulation stack.
+- **Styling**: Vanilla CSS for flexibility and performance.
+- **Simulation Engine**: [Ngspice](https://ngspice.sourceforge.io/) (C) compiled to **WebAssembly**.
+- **Engine Bridge**: `eecircuit-engine` - a custom TypeScript wrapper for the WASM simulation stack.
 
 ## 📂 Project Structure
 

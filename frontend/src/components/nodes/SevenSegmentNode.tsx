@@ -1,0 +1,88 @@
+import { Handle, Position } from '@xyflow/react';
+import { useEffect, useState } from 'react';
+
+const SEGMENT_PATHS: Record<string, string> = {
+  a: 'M6,2 L18,2 L16,4 L8,4 Z',
+  b: 'M19,3 L19,11 L17,9 L17,5 Z',
+  c: 'M19,13 L19,21 L17,19 L17,15 Z',
+  d: 'M6,22 L18,22 L16,20 L8,20 Z',
+  e: 'M5,13 L5,21 L7,19 L7,15 Z',
+  f: 'M5,3 L5,11 L7,9 L7,5 Z',
+  g: 'M6,12 L18,12 L16,14 L8,14 Z',
+};
+
+const SEG_COLORS: Record<string, string> = {
+  a: 'bg-red-400', b: 'bg-orange-400', c: 'bg-yellow-400',
+  d: 'bg-green-400', e: 'bg-teal-400', f: 'bg-blue-400', g: 'bg-purple-400',
+};
+
+export function SevenSegmentNode({ data }: any) {
+  const segs = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+  const [currentVoltages, setCurrentVoltages] = useState<Record<string, number>>(data.segmentVoltages || {});
+  const isSimulating = !!data.isSimulating;
+
+  useEffect(() => {
+    if (!isSimulating || !data.segmentVoltageArrays || !data.timePoints || data.timePoints.length === 0) {
+      setCurrentVoltages(data.segmentVoltages || {});
+      return;
+    }
+
+    let animationFrame: number;
+    let startTime = Date.now();
+    const duration = data.timePoints[data.timePoints.length - 1] || 1000;
+
+    const animate = () => {
+      let elapsedMs = Date.now() - startTime;
+      if (elapsedMs > duration) {
+        startTime = Date.now();
+        elapsedMs = 0;
+      }
+
+      let idx = 0;
+      for (let i = 0; i < data.timePoints.length; i++) {
+        if (data.timePoints[i] >= elapsedMs) {
+          idx = i;
+          break;
+        }
+      }
+
+      const nextVoltages: Record<string, number> = {};
+      segs.forEach(s => {
+        nextVoltages[s] = data.segmentVoltageArrays[s]?.[idx] || 0;
+      });
+      setCurrentVoltages(nextVoltages);
+      
+      animationFrame = requestAnimationFrame(animate);
+    };
+
+    animationFrame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationFrame);
+  }, [data.segmentVoltageArrays, data.timePoints, data.segmentVoltages, isSimulating]);
+
+  return (
+    <div className="bg-gray-900 border-2 border-gray-700 rounded-md p-2 w-20 h-28 flex flex-col items-center justify-center relative shadow-lg">
+      {segs.map((s, i) => (
+        <span key={s}>
+          <Handle type="target" position={Position.Left} id={s} className={`w-2.5 h-2.5 ${SEG_COLORS[s]}`} style={{ top: `${12 + i * 12}%` }} />
+          <Handle type="source" position={Position.Left} id={s} className={`w-2.5 h-2.5 ${SEG_COLORS[s]}`} style={{ top: `${12 + i * 12}%` }} />
+        </span>
+      ))}
+      <Handle type="target" position={Position.Bottom} id="common" className="w-3 h-3 bg-gray-400" />
+      <Handle type="source" position={Position.Bottom} id="common" className="w-3 h-3 bg-gray-400" />
+
+      <svg width="48" height="48" viewBox="0 0 24 24" className="drop-shadow-lg">
+        {segs.map(s => {
+          const on = (currentVoltages[s] ?? 0) > 2.5;
+          return (
+            <path key={s} d={SEGMENT_PATHS[s]}
+              fill={on ? '#ef4444' : '#1f1f1f'} stroke={on ? '#fca5a5' : '#333'}
+              strokeWidth="0.3" opacity={on ? 1 : 0.3}
+              style={on ? { filter: 'drop-shadow(0 0 3px #ef4444)' } : undefined}
+            />
+          );
+        })}
+      </svg>
+      <div className="text-[8px] text-gray-500 font-mono mt-0.5">7-SEG</div>
+    </div>
+  );
+}

@@ -187,6 +187,39 @@ export function generateSpiceNetlist(nodes: Node[], edges: Edge[], simLength: nu
       const n2 = getNet(node.id, 'gnd');
       netlist += `R_${node.id} ${n1} ${n2} 1G\n`;
     }
+    else if (node.type === 'potentiometer') {
+      const rawLabel = String(node.data.label || '10k');
+      const totalRStr = sanitizeSpiceValue(rawLabel);
+      // Parse numeric value with SI suffix for splitting
+      let totalR = parseFloat(totalRStr) || 10000;
+      const suffix = totalRStr.replace(/[0-9.eE\-+]/g, '').toLowerCase();
+      if (suffix === 'k') totalR *= 1000;
+      else if (suffix === 'meg' || suffix === 'm' && totalRStr.toLowerCase().endsWith('meg')) totalR *= 1e6;
+      else if (suffix === 'm') totalR /= 1000;
+      else if (suffix === 'u') totalR /= 1e6;
+      const pos = Math.max(0.001, Math.min(0.999, (Number(node.data.position) || 50) / 100));
+      const nIn = getNet(node.id, 'in');
+      const nOut = getNet(node.id, 'out');
+      const nWiper = getNet(node.id, 'wiper');
+      const rTop = totalR * (1 - pos);
+      const rBot = totalR * pos;
+      netlist += `R_${node.id}_top ${nIn} ${nWiper} ${rTop}\n`;
+      netlist += `R_${node.id}_bot ${nWiper} ${nOut} ${rBot}\n`;
+    }
+    else if (node.type === 'sevenseg') {
+      const nCommon = getNet(node.id, 'common');
+      const segs = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+      segs.forEach(s => {
+        const nSeg = getNet(node.id, s);
+        netlist += `R_${node.id}_${s} ${nSeg} ${nCommon} 1G\n`;
+      });
+    }
+    else if (node.type === 'currentsource') {
+      const val = sanitizeSpiceValue(String(node.data.label || '10m'));
+      const nPos = getNet(node.id, 'pos');
+      const nNeg = getNet(node.id, 'neg');
+      netlist += `I_${node.id} ${nPos} ${nNeg} DC ${val}\n`;
+    }
     else if (node.type === 'speaker') {
       const n1 = getNet(node.id, 'in');
       const n2 = getNet(node.id, 'gnd');

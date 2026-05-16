@@ -9,9 +9,15 @@ export function LEDNode({ data }: any) {
   const glowRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
 
+  const isSimulating = !!data.isSimulating;
+  
   useEffect(() => {
-    if (isExploded || !data.current_array || !data.time_points) {
-      if (textRef.current) textRef.current.innerText = '';
+    if (!isSimulating || isExploded || !data.current_array || !data.time_points) {
+      if (textRef.current && !isSimulating && data.current_array) {
+        // show final value when stopped
+        const finalmA = data.current_array[data.current_array.length-1] * 1000;
+        textRef.current.innerText = finalmA.toFixed(1) + 'mA';
+      }
       return;
     }
     
@@ -53,7 +59,7 @@ export function LEDNode({ data }: any) {
     
     animationFrame = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationFrame);
-  }, [data.current_array, data.time_points, isExploded, max_current, color]);
+  }, [data.current_array, data.time_points, isExploded, max_current, color, isSimulating]);
 
   // static fallback
   const staticBrightness = typeof data.brightness === 'number' ? data.brightness : 0;

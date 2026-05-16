@@ -46,12 +46,16 @@ import { XorNode } from './components/nodes/XorNode';
 import { InductorNode } from './components/nodes/InductorNode';
 import { SwitchNode } from './components/nodes/SwitchNode';
 import { generateSpiceNetlist, sanitizeSpiceValue } from './utils/spice';
-import { Play, Square, Trash2, Info, Menu, X, AlertCircle, Settings, Save } from 'lucide-react';
+import { Play, Square, Trash2, Info, Menu, X, AlertCircle, Settings, Save, Crosshair } from 'lucide-react';
 import { Simulation } from 'eecircuit-engine';
 import { presets } from './utils/presets';
 import { AuraEdge } from './components/AuraEdge';
 import { SettingsModal } from './components/SettingsModal';
 import { loadSettings, saveSettings, loadUserPresets, addUserPreset, removeUserPreset, nameToKey, type CircuitPreset } from './utils/storage';
+import { PotentiometerNode } from './components/nodes/PotentiometerNode';
+import { SevenSegmentNode } from './components/nodes/SevenSegmentNode';
+import { CurrentSourceNode } from './components/nodes/CurrentSourceNode';
+import { datasheets } from './utils/datasheets';
 
 const edgeTypes = {
   aura: AuraEdge,
@@ -88,6 +92,9 @@ const nodeTypes = {
   xor: XorNode,
   inductor: InductorNode,
   switch: SwitchNode,
+  potentiometer: PotentiometerNode,
+  sevenseg: SevenSegmentNode,
+  currentsource: CurrentSourceNode,
 };
 
 let engineInstance: any = null;
@@ -359,6 +366,36 @@ function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) 
         </div>
         <span className="text-sm font-medium">Switch</span>
       </div>
+
+      <div 
+        className="border border-gray-300 rounded p-3 cursor-grab hover:bg-gray-50 flex flex-col items-center gap-2"
+        onDragStart={(e) => onDragStart(e, 'potentiometer', '10k')} draggable
+      >
+        <div className="bg-white border-2 border-orange-700 rounded w-16 h-8 flex items-center justify-center">
+          <svg width="32" height="14" viewBox="0 0 32 14"><rect x="2" y="4" width="28" height="6" fill="none" stroke="#9a3412" strokeWidth="1.5" rx="1"/><line x1="16" y1="0" x2="16" y2="5" stroke="#c2410c" strokeWidth="1.5"/><path d="M13,3 L16,0 L19,3" fill="none" stroke="#c2410c" strokeWidth="1"/></svg>
+        </div>
+        <span className="text-sm font-medium">Pot</span>
+      </div>
+
+      <div 
+        className="border border-gray-300 rounded p-3 cursor-grab hover:bg-gray-50 flex flex-col items-center gap-2"
+        onDragStart={(e) => onDragStart(e, 'sevenseg')} draggable
+      >
+        <div className="bg-gray-900 border-2 border-gray-700 rounded w-10 h-10 flex items-center justify-center">
+          <span className="text-red-500 font-bold text-lg font-mono">8</span>
+        </div>
+        <span className="text-sm font-medium">7-Seg</span>
+      </div>
+
+      <div 
+        className="border border-gray-300 rounded p-3 cursor-grab hover:bg-gray-50 flex flex-col items-center gap-2"
+        onDragStart={(e) => onDragStart(e, 'currentsource', '10m')} draggable
+      >
+        <div className="bg-white border-2 border-teal-700 rounded-full w-10 h-10 flex items-center justify-center">
+          <svg width="16" height="16" viewBox="0 0 28 28" fill="none"><line x1="14" y1="24" x2="14" y2="6" stroke="#0d9488" strokeWidth="2"/><path d="M10,10 L14,4 L18,10" fill="none" stroke="#0d9488" strokeWidth="2"/></svg>
+        </div>
+        <span className="text-sm font-medium">I Source</span>
+      </div>
     </div>
   </div>
   );
@@ -592,45 +629,80 @@ function PropertiesPanel({ selectedNode, setNodes, isSimulating, runSimulation, 
       {selectedNode.type === 'scope' && (
         <>
           <div className="mb-3">
-            <label className="block text-xs font-medium text-gray-700 mb-1">Y Axis Mode</label>
-            <select value={(selectedNode.data.yMode as string) || 'auto'} onChange={e => updateData('yMode', e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1">
-              <option value="auto">Auto (Fit to Data)</option>
-              <option value="fixed">Fixed Range</option>
-            </select>
+            <label className="block text-xs font-medium text-gray-700 mb-1">V/div</label>
+            <input type="number" step="0.1" min="0.01" value={(selectedNode.data.vDiv as number) ?? ''} onChange={e => updateData('vDiv', e.target.value ? parseFloat(e.target.value) : undefined)} placeholder="Auto" className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
+            <div className="text-[10px] text-gray-400 mt-0.5">Leave empty for auto-detect</div>
           </div>
-          {selectedNode.data.yMode === 'fixed' && (
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              <div>
-                <label className="block text-[10px] text-gray-500 uppercase">Min (V)</label>
-                <input type="number" value={(selectedNode.data.yMin as number) ?? -15} onChange={e => updateData('yMin', parseFloat(e.target.value))} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
-              </div>
-              <div>
-                <label className="block text-[10px] text-gray-500 uppercase">Max (V)</label>
-                <input type="number" value={(selectedNode.data.yMax as number) ?? 15} onChange={e => updateData('yMax', parseFloat(e.target.value))} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
-              </div>
-            </div>
-          )}
           <div className="mb-3">
-            <label className="block text-xs font-medium text-gray-700 mb-1">X Axis Mode</label>
-            <select value={(selectedNode.data.xMode as string) || 'auto'} onChange={e => updateData('xMode', e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1">
-              <option value="auto">Auto (Full Simulation)</option>
-              <option value="manual">Fixed Window</option>
-            </select>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Time/div (ms)</label>
+            <input type="number" step="0.1" min="0.001" value={(selectedNode.data.tDiv as number) ?? ''} onChange={e => updateData('tDiv', e.target.value ? parseFloat(e.target.value) : undefined)} placeholder="Auto" className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
+            <div className="text-[10px] text-gray-400 mt-0.5">Leave empty for auto-detect</div>
           </div>
-          {selectedNode.data.xMode === 'manual' && (
-            <div className="mb-3">
-              <label className="block text-[10px] text-gray-500 uppercase">Time Window (ms)</label>
-              <input type="number" min="1" value={(selectedNode.data.xMax as number) ?? 100} onChange={e => updateData('xMax', parseFloat(e.target.value))} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
-            </div>
-          )}
+          <div className="mb-3 flex items-center gap-2">
+            <input type="checkbox" id="scope-fft" checked={!!selectedNode.data.showFFT} onChange={e => updateData('showFFT', e.target.checked)} />
+            <label htmlFor="scope-fft" className="text-xs font-medium text-gray-700">FFT Mode (Frequency Spectrum)</label>
+          </div>
         </>
       )}
+      {selectedNode.type === 'potentiometer' && (
+        <>
+          <div className="mb-3">
+            <label className="block text-xs font-medium text-gray-700 mb-1">Total Resistance</label>
+            <input type="text" value={(selectedNode.data.label as string) || '10k'} onChange={e => updateData('label', e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
+          </div>
+          <div className="mb-3">
+            <label className="block text-xs font-medium text-gray-700 mb-1">Wiper Position ({(selectedNode.data.position as number) ?? 50}%)</label>
+            <input type="range" min="0" max="100" value={(selectedNode.data.position as number) ?? 50} onChange={e => updateData('position', parseInt(e.target.value))} className="w-full" />
+          </div>
+        </>
+      )}
+      {selectedNode.type === 'sevenseg' && (
+        <div className="mb-3">
+          <div className="text-xs text-gray-500 mb-1">Segments: a(top) b(TR) c(BR) d(bot) e(BL) f(TL) g(mid)</div>
+          <div className="text-xs text-gray-500">Connect 5V through resistors to segment inputs. Common cathode → GND.</div>
+        </div>
+      )}
+      {selectedNode.type === 'currentsource' && (
+        <div className="mb-3">
+          <label className="block text-xs font-medium text-gray-700 mb-1">Current</label>
+          <input type="text" value={(selectedNode.data.label as string) || '10m'} onChange={e => updateData('label', e.target.value)} className="w-full text-sm border border-gray-300 rounded px-2 py-1" />
+          <div className="text-[10px] text-gray-400 mt-1">e.g. 10m = 10mA, 1 = 1A</div>
+        </div>
+      )}
+
+      {/* Datasheet Section */}
+      {selectedNode.type && datasheets[selectedNode.type] && (() => {
+        const ds = datasheets[selectedNode.type];
+        return (
+          <details className="mt-4 border-t border-gray-100 pt-3">
+            <summary className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider cursor-pointer hover:text-indigo-800 select-none">📋 Datasheet: {ds.title}</summary>
+            <div className="mt-2 text-[11px] text-gray-600 space-y-2">
+              <p>{ds.description}</p>
+              {ds.formula && (
+                <div className="bg-gray-50 rounded p-2 font-mono text-[10px] text-gray-800 whitespace-pre-wrap border border-gray-100">{ds.formula}</div>
+              )}
+              {ds.specs && (
+                <ul className="list-disc list-inside space-y-0.5 text-[10px] text-gray-500">
+                  {ds.specs.map((s, i) => <li key={i}>{s}</li>)}
+                </ul>
+              )}
+              {ds.truthTable && (
+                <table className="w-full text-center text-[10px] border-collapse">
+                  <thead><tr>{ds.truthTable[0].map((h, i) => <th key={i} className="border border-gray-200 px-2 py-0.5 bg-gray-50 font-bold">{h}</th>)}</tr></thead>
+                  <tbody>{ds.truthTable.slice(1).map((row, ri) => <tr key={ri}>{row.map((c, ci) => <td key={ci} className="border border-gray-200 px-2 py-0.5">{c}</td>)}</tr>)}</tbody>
+                </table>
+              )}
+            </div>
+          </details>
+        );
+      })()}
     </div>
   );
 }
 
 function FlowArea({ 
-  nodes, edges, setNodes, onNodesChange, onEdgesChange, onConnect, onNodeClick 
+  nodes, edges, setNodes, onNodesChange, onEdgesChange, onConnect, onNodeClick,
+  probeMode, onEdgeProbe
 }: any) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition } = useReactFlow();
@@ -667,8 +739,14 @@ function FlowArea({
     [screenToFlowPosition, setNodes]
   );
 
+  const handleEdgeClick = useCallback((_: React.MouseEvent, edge: Edge) => {
+    if (probeMode && onEdgeProbe) {
+      onEdgeProbe(edge.id, _);
+    }
+  }, [probeMode, onEdgeProbe]);
+
   return (
-    <div className="flex-1 h-full" ref={reactFlowWrapper}>
+    <div className="flex-1 h-full" ref={reactFlowWrapper} style={probeMode ? { cursor: 'crosshair' } : undefined}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -678,6 +756,7 @@ function FlowArea({
         onDrop={onDrop}
         onDragOver={onDragOver}
         onNodeClick={onNodeClick}
+        onEdgeClick={handleEdgeClick}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         connectionMode={ConnectionMode.Loose}
@@ -707,6 +786,26 @@ export default function App() {
   const [showAura, setShowAura] = useState(savedSettings.showAura ?? false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1024);
   const [userPresets, setUserPresets] = useState<Record<string, CircuitPreset>>(() => loadUserPresets());
+  const [probeMode, setProbeMode] = useState(false);
+  const [probeData, setProbeData] = useState<{ netName: string; voltage: number; x: number; y: number } | null>(null);
+  const simResultRef = useRef<{ portToNet: Record<string, string>; result: any } | null>(null);
+
+  // Scope resize handler — inject into every scope node's data
+  const scopeResizeHandler = useCallback((nodeId: string, w: number, h: number) => {
+    setNodes(nds => nds.map(n =>
+      n.id === nodeId ? { ...n, data: { ...n.data, width: w, height: h } } : n
+    ));
+  }, [setNodes]);
+
+  // Inject onResize callback into scope nodes
+  useEffect(() => {
+    setNodes(nds => nds.map(n => {
+      if (n.type === 'scope' && !n.data.onResize) {
+        return { ...n, data: { ...n.data, onResize: (w: number, h: number) => scopeResizeHandler(n.id, w, h) } };
+      }
+      return n;
+    }));
+  }, [nodes.length, scopeResizeHandler, setNodes]);
 
   // Auto-close sidebar on small screens
   useEffect(() => {
@@ -750,6 +849,14 @@ export default function App() {
     })));
   }, [showAura, setEdges]);
 
+  // Sync isSimulating state to all nodes so they can gate animations
+  useEffect(() => {
+    setNodes(nds => nds.map(n => ({
+      ...n,
+      data: { ...n.data, isSimulating }
+    })));
+  }, [isSimulating, setNodes]);
+
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)),
     []
@@ -783,12 +890,8 @@ export default function App() {
         return code.includes('Read');
       });
 
-      console.log("Simulating netlist (Pass 1):\n", netlist);
-      
-      console.log("Starting simulation...");
       engineInstance.setNetList(netlist);
       let result = await engineInstance.runSim();
-      console.log("Simulation result received:", result);
 
       const findGraphFromSim = (res: any, netName: string) => {
         if (!netName || !res) return null;
@@ -810,7 +913,6 @@ export default function App() {
       };
 
       if (needsTwoPass) {
-         console.log("MCU needs inputs, running Pass 2...");
          const mcuWaveforms: any = {};
          for (const mcu of mcuNodes) {
            mcuWaveforms[mcu.id] = {};
@@ -836,7 +938,8 @@ export default function App() {
       const findGraph = (netName: string) => findGraphFromSim(result, netName);
 
       const updatedNodes = currentNodes.map(n => {
-        let newNode = { ...n };
+        let newNode = { ...n } as any;
+        newNode.data = { ...newNode.data, isSimulating: true };
         
         // 1. Calculate current_array for nodes with terminals
         const v1Net = portToNet[`${n.id}-in`] || portToNet[`${n.id}-pos`] || portToNet[`${n.id}-anode`] || portToNet[`${n.id}-c`];
@@ -908,12 +1011,37 @@ export default function App() {
           newNode.data = { ...newNode.data, voltageData: vd };
         } else if (n.type === 'mcu') {
           newNode.data.logs = mcuLogs[n.id];
+        } else if (n.type === 'sevenseg') {
+          const segs = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+          const commonGraph = findGraph(portToNet[`${n.id}-common`]);
+          const segmentVoltages: Record<string, number> = {};
+          const segmentVoltageArrays: Record<string, number[]> = {};
+          let timePoints: number[] = [];
+          
+          segs.forEach(s => {
+            const segGraph = findGraph(portToNet[`${n.id}-${s}`]);
+            if (segGraph) {
+              if (timePoints.length === 0) timePoints = segGraph.timestamps_ms;
+              const vComArr = commonGraph ? commonGraph.voltage_levels : new Array(segGraph.voltage_levels.length).fill(0);
+              const diffs = segGraph.voltage_levels.map((v, i) => v - (vComArr[i] || 0));
+              segmentVoltageArrays[s] = diffs;
+              
+              let peak = 0;
+              diffs.forEach(d => { if (Math.abs(d) > Math.abs(peak)) peak = d; });
+              segmentVoltages[s] = peak;
+            } else {
+              segmentVoltages[s] = 0;
+              segmentVoltageArrays[s] = [];
+            }
+          });
+          newNode.data = { ...newNode.data, segmentVoltages, segmentVoltageArrays, timePoints };
         }
         
         return newNode;
       });
 
       setNodes(updatedNodes);
+      simResultRef.current = { portToNet, result };
 
       setEdges(eds => eds.map(e => {
         const srcNode = updatedNodes.find(n => n.id === e.source);
@@ -1095,6 +1223,13 @@ export default function App() {
           >
             <Trash2 size={16} /> <span className="hidden 2xl:inline ml-2">Delete</span>
           </button>
+          <button
+            onClick={() => { setProbeMode(!probeMode); setProbeData(null); }}
+            className={`flex items-center justify-center p-2 rounded-md font-medium text-sm transition-colors ${probeMode ? 'bg-violet-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}
+            title="Probe Mode — click a wire to inspect voltage"
+          >
+            <Crosshair size={16} /> <span className="hidden 2xl:inline ml-2">Probe</span>
+          </button>
           <button 
             onClick={() => runSimulation()}
             disabled={isSimulating}
@@ -1152,6 +1287,26 @@ export default function App() {
             setNodes={setNodes}
             onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
             onNodeClick={onNodeClick}
+            probeMode={probeMode}
+            onEdgeProbe={(edgeId: string, event: React.MouseEvent) => {
+              if (!probeMode || !simResultRef.current) return;
+              const { portToNet, result } = simResultRef.current;
+              const edge = edges.find(e => e.id === edgeId);
+              if (!edge) return;
+              const srcPort = `${edge.source}-${edge.sourceHandle || 'out'}`;
+              const netName = portToNet[srcPort] || 'unknown';
+              // Find voltage
+              let voltage = 0;
+              if (result?.variableNames && result?.data) {
+                const search = netName.toLowerCase();
+                const idx = result.variableNames.findIndex((v: string) => v.toLowerCase() === search || v.toLowerCase() === `v(${search})`);
+                if (idx !== -1 && result.data[idx]) {
+                  const vals = result.data[idx].values;
+                  voltage = vals[vals.length - 1];
+                }
+              }
+              setProbeData({ netName, voltage, x: event.clientX, y: event.clientY });
+            }}
           />
         </ReactFlowProvider>
         {nodes.find(n => n.selected) && (
@@ -1211,6 +1366,20 @@ export default function App() {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Probe Tooltip */}
+        {probeData && (
+          <div
+            className="fixed z-[200] bg-gray-900 text-white rounded-lg px-4 py-3 shadow-2xl border border-violet-500 text-xs font-mono pointer-events-auto animate-in fade-in duration-100"
+            style={{ left: probeData.x + 12, top: probeData.y - 10 }}
+            onClick={() => setProbeData(null)}
+          >
+            <div className="text-violet-300 font-bold mb-1">🔍 Probe</div>
+            <div>Net: <span className="text-amber-300">{probeData.netName}</span></div>
+            <div>V: <span className="text-green-300">{probeData.voltage.toFixed(4)} V</span></div>
+            <div className="text-[9px] text-gray-400 mt-1 italic">click to dismiss</div>
           </div>
         )}
       </div>

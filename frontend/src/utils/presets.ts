@@ -650,6 +650,101 @@ export const astableMultivibrator: CircuitPreset = {
   ]
 };
 
+export const potDimmer: CircuitPreset = {
+  name: 'Pot LED Dimmer',
+  recommendedSimLength: 0.5,
+  nodes: [
+    { id: 'v1', type: 'voltage', position: { x: 50, y: 150 }, data: { label: '5V' } },
+    { id: 'pot1', type: 'potentiometer', position: { x: 250, y: 150 }, data: { label: '1k', position: 50 } },
+    { id: 'r1', type: 'resistor', position: { x: 450, y: 150 }, data: { label: '100' } },
+    { id: 'led1', type: 'led', position: { x: 650, y: 150 }, data: { label: 'LED', color: 'lime', v_drop: 2.0, max_current: 20 } },
+    { id: 'mm1', type: 'multimeter', position: { x: 350, y: 50 }, data: { label: 'Wiper V' } },
+    { id: 'g1', type: 'ground', position: { x: 350, y: 350 }, data: { label: 'GND' } },
+  ],
+  edges: [
+    { id: 'e-v1-pot', source: 'v1', target: 'pot1', sourceHandle: 'pos', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-pot-gnd', source: 'pot1', target: 'g1', sourceHandle: 'out', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-wiper-r1', source: 'pot1', target: 'r1', sourceHandle: 'wiper', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-r1-led', source: 'r1', target: 'led1', sourceHandle: 'out', targetHandle: 'anode', type: 'smoothstep' },
+    { id: 'e-led-gnd', source: 'led1', target: 'g1', sourceHandle: 'cathode', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-v1-gnd', source: 'v1', target: 'g1', sourceHandle: 'neg', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-mm-pos', source: 'pot1', target: 'mm1', sourceHandle: 'wiper', targetHandle: 'pos', type: 'smoothstep' },
+    { id: 'e-mm-neg', source: 'mm1', target: 'g1', sourceHandle: 'neg', targetHandle: 'in', type: 'smoothstep' },
+  ]
+};
+
+export const sevenSegDirect: CircuitPreset = {
+  name: '7-Segment Display',
+  recommendedSimLength: 1.0,
+  nodes: [
+    { id: 'v1', type: 'voltage', position: { x: 50, y: 50 }, data: { label: '5V' } },
+    // Direct drive: wire 5V to segments a,b,c,d,e,f to show "0"
+    { id: 'seg1', type: 'sevenseg', position: { x: 400, y: 150 }, data: { label: '7-SEG' } },
+    { id: 'ra', type: 'resistor', position: { x: 200, y: 80 }, data: { label: '330' } },
+    { id: 'rb', type: 'resistor', position: { x: 200, y: 140 }, data: { label: '330' } },
+    { id: 'rc', type: 'resistor', position: { x: 200, y: 200 }, data: { label: '330' } },
+    { id: 'rd', type: 'resistor', position: { x: 200, y: 260 }, data: { label: '330' } },
+    { id: 're', type: 'resistor', position: { x: 200, y: 320 }, data: { label: '330' } },
+    { id: 'rf', type: 'resistor', position: { x: 200, y: 380 }, data: { label: '330' } },
+    { id: 'g1', type: 'ground', position: { x: 400, y: 400 }, data: { label: 'GND' } },
+  ],
+  edges: [
+    // Resistors from 5V
+    { id: 'e-v-ra', source: 'v1', target: 'ra', sourceHandle: 'pos', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-v-rb', source: 'v1', target: 'rb', sourceHandle: 'pos', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-v-rc', source: 'v1', target: 'rc', sourceHandle: 'pos', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-v-rd', source: 'v1', target: 'rd', sourceHandle: 'pos', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-v-re', source: 'v1', target: 're', sourceHandle: 'pos', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-v-rf', source: 'v1', target: 'rf', sourceHandle: 'pos', targetHandle: 'in', type: 'smoothstep' },
+    // Segments
+    { id: 'e-ra-a', source: 'ra', target: 'seg1', sourceHandle: 'out', targetHandle: 'a', type: 'smoothstep' },
+    { id: 'e-rb-b', source: 'rb', target: 'seg1', sourceHandle: 'out', targetHandle: 'b', type: 'smoothstep' },
+    { id: 'e-rc-c', source: 'rc', target: 'seg1', sourceHandle: 'out', targetHandle: 'c', type: 'smoothstep' },
+    { id: 'e-rd-d', source: 'rd', target: 'seg1', sourceHandle: 'out', targetHandle: 'd', type: 'smoothstep' },
+    { id: 'e-re-e', source: 're', target: 'seg1', sourceHandle: 'out', targetHandle: 'e', type: 'smoothstep' },
+    { id: 'e-rf-f', source: 'rf', target: 'seg1', sourceHandle: 'out', targetHandle: 'f', type: 'smoothstep' },
+    // Common cathode and GND
+    { id: 'e-seg-gnd', source: 'seg1', target: 'g1', sourceHandle: 'common', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-v-gnd', source: 'v1', target: 'g1', sourceHandle: 'neg', targetHandle: 'in', type: 'smoothstep' },
+  ]
+};
+
+export const currentMirror: CircuitPreset = {
+  name: 'Current Mirror',
+  recommendedSimLength: 0.5,
+  nodes: [
+    { id: 'v1', type: 'voltage', position: { x: 300, y: 50 }, data: { label: '12V' } },
+    { id: 'isrc', type: 'currentsource', position: { x: 100, y: 250 }, data: { label: '5m' } },
+    { id: 'q1', type: 'npn', position: { x: 200, y: 350 }, data: { label: 'Q1 (ref)' } },
+    { id: 'q2', type: 'npn', position: { x: 400, y: 350 }, data: { label: 'Q2 (mirror)' } },
+    { id: 'rload', type: 'resistor', position: { x: 400, y: 200 }, data: { label: '1k' } },
+    { id: 'mm1', type: 'multimeter', position: { x: 50, y: 150 }, data: { label: 'I_ref' } },
+    { id: 'mm2', type: 'multimeter', position: { x: 550, y: 200 }, data: { label: 'I_mirror' } },
+    { id: 'g1', type: 'ground', position: { x: 300, y: 500 }, data: { label: 'GND' } },
+  ],
+  edges: [
+    // Reference branch: V+ → current source → Q1 collector (diode-connected)
+    { id: 'e-v-isrc', source: 'v1', target: 'isrc', sourceHandle: 'pos', targetHandle: 'pos', type: 'smoothstep' },
+    { id: 'e-isrc-q1c', source: 'isrc', target: 'q1', sourceHandle: 'neg', targetHandle: 'c', type: 'smoothstep' },
+    // Q1 diode-connected: base tied to collector
+    { id: 'e-q1c-q1b', source: 'q1', target: 'q1', sourceHandle: 'c', targetHandle: 'b', type: 'smoothstep' },
+    // Mirror: Q1.base → Q2.base
+    { id: 'e-q1b-q2b', source: 'q1', target: 'q2', sourceHandle: 'b', targetHandle: 'b', type: 'smoothstep' },
+    // Mirror branch: V+ → Rload → Q2 collector
+    { id: 'e-v-rload', source: 'v1', target: 'rload', sourceHandle: 'pos', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-rload-q2c', source: 'rload', target: 'q2', sourceHandle: 'out', targetHandle: 'c', type: 'smoothstep' },
+    // Emitters to ground
+    { id: 'e-q1e-gnd', source: 'q1', target: 'g1', sourceHandle: 'e', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-q2e-gnd', source: 'q2', target: 'g1', sourceHandle: 'e', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-v-gnd', source: 'v1', target: 'g1', sourceHandle: 'neg', targetHandle: 'in', type: 'smoothstep' },
+    // Multimeters
+    { id: 'e-mm1-pos', source: 'isrc', target: 'mm1', sourceHandle: 'neg', targetHandle: 'pos', type: 'smoothstep' },
+    { id: 'e-mm1-neg', source: 'mm1', target: 'g1', sourceHandle: 'neg', targetHandle: 'in', type: 'smoothstep' },
+    { id: 'e-mm2-pos', source: 'rload', target: 'mm2', sourceHandle: 'out', targetHandle: 'pos', type: 'smoothstep' },
+    { id: 'e-mm2-neg', source: 'mm2', target: 'g1', sourceHandle: 'neg', targetHandle: 'in', type: 'smoothstep' },
+  ]
+};
+
 export const presets: Record<string, CircuitPreset> = {
   empty,
   basicBlink,
@@ -664,6 +759,9 @@ export const presets: Record<string, CircuitPreset> = {
   classABamp,
   bridgeRectifier,
   boostConverter,
+  potDimmer,
+  sevenSegDirect,
+  currentMirror,
   mcuBlink,
   mcuSpeaker,
   mcuAnalogOut,
@@ -672,4 +770,3 @@ export const presets: Record<string, CircuitPreset> = {
   mcuCleanAudioSampler,
   mixedLogicBlink
 };
-
